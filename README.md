@@ -1,75 +1,88 @@
-# React + TypeScript + Vite
+# Hospitalis – Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Hospitalis is a modern web-based hospital management system aimed at improving the efficiency and organization of healthcare processes.  
+This repository contains the **frontend application**, responsible for user interaction, visual presentation, and communication with the backend API.
 
-Currently, two official plugins are available:
+The frontend is designed with a strong emphasis on **usability, responsiveness, and clean user experience**, following modern web development standards.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 🎯 Project Purpose
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+The frontend of Hospitalis provides an intuitive and secure interface for medical staff to:
 
-Note: This will impact Vite dev & build performances.
+- Authenticate securely into the system
+- Manage appointments and schedules
+- Access clinical information
+- Interact efficiently with hospital workflows
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🧩 System Scope
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The frontend evolves incrementally alongside the backend, following Scrum methodology.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Sprint 1 – Authentication Interfaces
+- Login view
+- Medical staff registration
+- Password recovery interface
+- Form validation and error handling
+- Secure token handling
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Sprint 2 – Medical Dashboard *(planned / in progress)*
+- Overview panels
+- Appointment calendar
+- Navigation and protected routes
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Sprint 3 – Clinical Modules *(planned)*
+- Patient management
+- Clinical records visualization
+- Medical reports UI
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Sprint 4 – Optimization and UX Enhancements *(planned)*
+- Performance improvements
+- Accessibility
+- UI/UX refinements
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
+
+## 🎨 Frontend Architecture
+
+The frontend follows a **component-based architecture**, ensuring reusability and maintainability:
+
+- Pages and views
+- Reusable UI components
+- Service layer for API communication
+- Route guards for protected access
+- State and authentication management
+
+---
+
+## 🔐 Security Considerations
+
+- Secure handling of authentication tokens
+- Protected routes
+- Client-side input validation
+- Controlled error messages
+
+---
+
+## 🛠️ Technology Stack
+
+- **Framework:** React
+- **Build Tool:** Vite
+- **Language:** TypeScript / JavaScript
+- **Styling:** Tailwind CSS
+- **Architecture:** SPA (Single Page Application)
+- **API Communication:** REST
+
+---
+
+## 🚀 Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
