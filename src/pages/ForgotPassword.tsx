@@ -7,7 +7,7 @@ function ForgotPassword(){
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await forgotPassword(email);
-    alert('Si el correo existe, se enviaron instrucciones');
+    alert('Si el correo existe, se enviará un enlace de recuperación');
   };
 
   return (
