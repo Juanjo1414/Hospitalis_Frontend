@@ -24,7 +24,7 @@ function Login(){
         <input
           className="input mb-4"
           type="email"
-          placeholder="Correo electrónico"
+          placeholder="Correo Electrónico"
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
