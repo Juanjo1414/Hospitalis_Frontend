@@ -1,0 +1,13 @@
+/* Clases reutilizables Hospitalis */
+
+.card {
+  @apply bg-white rounded-xl shadow-md p-6;
+}
+
+.input {
+  @apply w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500;
+}
+
+.button-primary {
+  @apply w-full bg-teal-600 text-white py-2 rounded-lg hover:bg-teal-700 transition;
+}
