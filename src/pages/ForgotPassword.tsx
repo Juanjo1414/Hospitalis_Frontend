@@ -1,35 +1,39 @@
-import { useState } from 'react';
-import { forgotPassword } from '../services/auth.service';
+import { Link } from 'react-router-dom';
+import '../styles/auth-form.css';
 
-function ForgotPassword(){
-  const [email, setEmail] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await forgotPassword(email);
-    alert('Si el correo existe, se enviará un enlace de recuperación');
-  };
-
+export const ForgotPassword = () => {
   return (
-    <>
-      <h1 className="text-2xl font-bold text-center mb-6">
-        Recuperar Contraseña
-      </h1>
+    <div className="forgot-page">
+      <div className="auth-card forgot">
+        <div className="forgot-top" />
+        <div className="card-head small">
+          <div className="forgot-brand">
+            <span className="brand-icon">+</span>
+            <span>Hospitalis</span>
+          </div>
+          <h1>Forgot Password?</h1>
+          <p>No worries, we’ll send you reset instructions. Please enter the email associated with your account.</p>
+        </div>
 
-      <form onSubmit={handleSubmit}>
-        <input
-          className="input mb-6"
-          type="email"
-          placeholder="Correo electrónico"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-        />
+        <label className="field">
+          <span className="label">Email Address</span>
+          <div className="input-with-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8.5L12 13L21 8.5" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <input type="email" placeholder="doctor@hospitalis.com" />
+          </div>
+        </label>
 
-        <button className="button-primary">Enviar</button>
-      </form>
-    </>
+        <button className="primary-btn">Send recovery link</button>
+
+        <div className="forgot-note">
+          © 2023 Hospitalis Medical Systems.<br />
+          Secure &amp; Private.
+        </div>
+
+        <p className="auth-footer">
+          ← <Link className="link" to="/login">Back to login</Link>
+        </p>
+      </div>
+    </div>
   );
-}
-
-export default ForgotPassword;
+};

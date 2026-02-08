@@ -1,0 +1,13 @@
+/*
+Se definen las variables de color y estilo para la aplicación. Estas variables se pueden reutilizar en todo el proyecto para mantener la consistencia visual y facilitar el mantenimiento del código.
+*/
+:root {
+  --primary: #1e88e5;
+  --secondary: #0f766e;
+  --background: #f5f7fa;
+  --text-dark: #1f2937;
+  --text-light: #6b7280;
+  --white: #ffffff;
+  --radius: 12px;
+  --shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}

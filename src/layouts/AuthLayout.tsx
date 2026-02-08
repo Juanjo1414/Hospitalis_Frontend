@@ -1,23 +1,33 @@
-import { Link, Outlet } from 'react-router-dom';
-import logo from '../assets/Logo Hospitalis.png';
+import '../styles/auth.css';
+import { Outlet } from 'react-router-dom';
 
-function AuthLayout(){
+interface Props {
+  children?: React.ReactNode;
+}
+
+export const AuthLayout = ({ children }: Props) => {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
-      
-      <img src={logo} alt="Hospitalis Logo" className="w-24 mb-6" />
-    
-      <div className="card w-full max-w-md">
-        <Outlet />
-        
-        <div className="flex justify-between mt-6 text-sm text-teal-600">
-          <Link to="/login">Iniciar sesión</Link>
-          <Link to="/register">Registrarse</Link>
-          <Link to="/forgot-password">Recuperar contraseña</Link>
+    <div className="auth-container">
+      <div className="auth-left">
+        <div className="auth-left-brand">
+          <span className="brand-icon">+</span>
+          <span className="brand-text">Hospitalis</span>
+        </div>
+        <div className="auth-overlay">
+          <h2>Managing Healthcare with Excellence</h2>
+          <p>
+            Experience the next generation of hospital management.
+            Streamlined workflows for doctors, better care for patients.
+          </p>
+        </div>
+      </div>
+
+      <div className="auth-right">
+        <div className="auth-card-wrapper">
+          {children}
+          <Outlet />
         </div>
       </div>
     </div>
   );
-}
-
-export default AuthLayout;
+};

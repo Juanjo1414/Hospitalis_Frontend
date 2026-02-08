@@ -1,9 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import './styles/variables.css';
 
-/* Estilos globales Hospitalis */
-body {
-  @apply bg-gray-100 text-gray-800;
-  font-family: 'Inter', system-ui, sans-serif;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
+
+body {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background: #f9fafb;
+}
+
+/* avoid horizontal scroll caused by 100vw usage elsewhere */
+html, body { overflow-x: hidden; }
+
