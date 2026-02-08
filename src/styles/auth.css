@@ -7,7 +7,7 @@
 /* IZQUIERDA */
 .auth-left {
   width: 50%;
-  background-image: url('/doctor.svg');
+  background-image: url("/doctor.png");
   background-position: center center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -16,10 +16,14 @@
 }
 
 .auth-left::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.12) 0%, rgba(15, 23, 42, 0.28) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.12) 0%,
+    rgba(15, 23, 42, 0.28) 100%
+  );
 }
 
 .auth-left-brand {
@@ -101,7 +105,13 @@
 
 /* Responsive adjustments */
 @media (max-width: 900px) {
-  .auth-left { display: none; }
-  .auth-right { width: 100%; }
-  .auth-card-wrapper { width: 92%; }
+  .auth-left {
+    display: none;
+  }
+  .auth-right {
+    width: 100%;
+  }
+  .auth-card-wrapper {
+    width: 92%;
+  }
 }
