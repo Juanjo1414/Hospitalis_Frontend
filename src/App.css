@@ -1,13 +1,44 @@
-/* Clases reutilizables Hospitalis */
-
 .card {
-  @apply bg-white rounded-xl shadow-md p-6;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  padding: 16px;
 }
 
-.input {
-  @apply w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500;
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.button-primary {
-  @apply w-full bg-teal-600 text-white py-2 rounded-lg hover:bg-teal-700 transition;
+.btn.primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn.ghost {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  color: #2563eb;
+}
+
+.input-field {
+  display: block;
+}
+
+.input-label {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.input-control {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
 }
