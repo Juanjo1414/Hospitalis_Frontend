@@ -1,14 +1,37 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import '../styles/auth-form.css';
+import '../styles/globals.css';
+import '../styles/auth.css';
 import { registerUser } from '../services/auth.service';
+
+const SPECIALTIES = [
+  'Cardiology',
+  'Dermatology',
+  'Emergency Medicine',
+  'Family Medicine',
+  'Gastroenterology',
+  'General Surgery',
+  'Internal Medicine',
+  'Neurology',
+  'Obstetrics & Gynecology',
+  'Oncology',
+  'Orthopedics',
+  'Pediatrics',
+  'Psychiatry',
+  'Pulmonology',
+  'Radiology',
+  'Urology',
+];
 
 export const Register = () => {
   const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [specialty, setSpecialty] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +44,6 @@ export const Register = () => {
       setError('Passwords do not match.');
       return;
     }
-
     if (!acceptTerms) {
       setError('Please accept the Terms of Service and Privacy Policy.');
       return;
@@ -30,15 +52,11 @@ export const Register = () => {
     setIsSubmitting(true);
 
     try {
-      await registerUser({ fullName, email, password });
+      await registerUser({ fullName, email, password, specialty });
       navigate('/login');
     } catch (err: any) {
       const message = err?.response?.data?.message;
-      if (message) {
-        setError(message);
-      } else {
-        setError('Unable to register. Please try again.');
-      }
+      setError(message ?? 'Unable to register. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -46,114 +64,182 @@ export const Register = () => {
 
   return (
     <div className="register-page">
-      <div className="register-topbar">
-        <div className="brand">
-          <span className="brand-icon">+</span>
-          <span>Hospitalis</span>
+      {/* ── Topbar ── */}
+      <header className="register-topbar">
+        <div className="hospitalis-brand">
+          <div className="brand-icon">
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+              local_hospital
+            </span>
+          </div>
+          Hospitalis
         </div>
-        <Link className="ghost" to="/login">Log In</Link>
+        <Link to="/login" className="btn-ghost">Log In</Link>
+      </header>
+
+      {/* ── Body ── */}
+      <div className="register-body">
+        <div className="register-card">
+          {/* Card header */}
+          <div className="register-card-head">
+            <div className="head-icon">
+              <span className="material-symbols-outlined">person_add</span>
+            </div>
+            <h1>Doctor Registration</h1>
+            <p>Enter your professional details to join the Hospitalis network.</p>
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="register-fields"
+          >
+            {/* Full Name */}
+            <div className="auth-field">
+              <label htmlFor="fullName">Full Name</label>
+              <div className="input-wrap">
+                <span className="input-icon material-symbols-outlined">person</span>
+                <input
+                  id="fullName"
+                  type="text"
+                  placeholder="Dr. Jane Doe"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Email */}
+            <div className="auth-field">
+              <label htmlFor="reg-email">Email Address</label>
+              <div className="input-wrap">
+                <span className="input-icon material-symbols-outlined">mail</span>
+                <input
+                  id="reg-email"
+                  type="email"
+                  placeholder="name@hospital.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+
+            {/* Medical Specialty */}
+            <div className="auth-field">
+              <label htmlFor="specialty">Medical Specialty</label>
+              <div className="input-wrap">
+                <span className="input-icon material-symbols-outlined">stethoscope</span>
+                <select
+                  id="specialty"
+                  value={specialty}
+                  onChange={(e) => setSpecialty(e.target.value)}
+                  required
+                  style={{ paddingLeft: 44 }}
+                >
+                  <option value="">Select your specialty...</option>
+                  {SPECIALTIES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Password + Confirm — dos columnas */}
+            <div className="grid-2col">
+              <div className="auth-field">
+                <label htmlFor="reg-password">Password</label>
+                <div className="input-wrap">
+                  <span className="input-icon material-symbols-outlined">lock</span>
+                  <input
+                    id="reg-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    style={{ paddingRight: 40 }}
+                  />
+                  <button
+                    type="button"
+                    className="input-action"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                      {showPassword ? 'visibility' : 'visibility_off'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="auth-field">
+                <label htmlFor="confirmPassword">Confirm Password</label>
+                <div className="input-wrap">
+                  <span className="input-icon material-symbols-outlined">lock_reset</span>
+                  <input
+                    id="confirmPassword"
+                    type={showConfirm ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    style={{ paddingRight: 40 }}
+                  />
+                  <button
+                    type="button"
+                    className="input-action"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                      {showConfirm ? 'visibility' : 'visibility_off'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Terms */}
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+              />
+              <span>
+                I agree to the{' '}
+                <a href="#" className="auth-link">Terms of Service</a>
+                {' '}and{' '}
+                <a href="#" className="auth-link">Privacy Policy</a>.
+              </span>
+            </label>
+
+            {/* Error */}
+            {error && (
+              <div className="auth-error">
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>error</span>
+                {error}
+              </div>
+            )}
+
+            {/* Submit */}
+            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Registering...' : 'Register Account'}
+            </button>
+
+            <p className="register-footer-text">
+              Already have an account?{' '}
+              <Link to="/login" className="auth-link">Log in here</Link>
+            </p>
+          </form>
+        </div>
       </div>
 
-      <form className="auth-card register" onSubmit={handleSubmit}>
-        <div className="card-head">
-          <div className="icon">+</div>
-          <h1>Doctor Registration</h1>
-          <p>Enter your professional details to join the Hospitalis network.</p>
-        </div>
-
-        <label className="field">
-          <span className="label">Full Name</span>
-          <div className="input-with-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 12a4 4 0 100-8 4 4 0 000 8z" stroke="#9CA3AF" strokeWidth="1.5"/><path d="M4 20a8 8 0 0116 0" stroke="#9CA3AF" strokeWidth="1.5"/></svg>
-            <input
-              type="text"
-              placeholder="Dr. Jane Doe"
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
-              required
-            />
-          </div>
-        </label>
-
-        <label className="field">
-          <span className="label">Email Address</span>
-          <div className="input-with-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8.5L12 13L21 8.5" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            <input
-              type="email"
-              placeholder="name@hospitalis.com"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-        </label>
-
-        <label className="field">
-          <span className="label">Medical Specialty</span>
-          <div className="input-with-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4v16M4 12h16" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            <select>
-              <option>Select your specialty...</option>
-              <option>General Medicine</option>
-              <option>Cardiology</option>
-              <option>Pediatrics</option>
-              <option>Neurology</option>
-            </select>
-          </div>
-        </label>
-
-        <div className="two-col">
-          <label className="field">
-            <span className="label">Password</span>
-            <div className="input-with-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 11V7a5 5 0 00-10 0v4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><rect x="3" y="11" width="18" height="10" rx="2" stroke="#9CA3AF" strokeWidth="1.5"/></svg>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </div>
-          </label>
-
-          <label className="field">
-            <span className="label">Confirm Password</span>
-            <div className="input-with-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 11V7a5 5 0 00-10 0v4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><rect x="3" y="11" width="18" height="10" rx="2" stroke="#9CA3AF" strokeWidth="1.5"/></svg>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                required
-              />
-            </div>
-          </label>
-        </div>
-
-        <label className="terms">
-          <input
-            type="checkbox"
-            checked={acceptTerms}
-            onChange={(event) => setAcceptTerms(event.target.checked)}
-          />
-          I agree to the <span className="link">Terms of Service</span> and <span className="link">Privacy Policy</span>
-        </label>
-
-        {error ? <div className="form-error">{error}</div> : null}
-
-        <button className="primary-btn" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Registering...' : 'Register Account'}
-        </button>
-
-        <p className="auth-footer">
-          Already have an account? <Link className="link" to="/login">Log in here</Link>
-        </p>
-      </form>
-
-      <div className="register-footer">© 2023 Hospitalis Systems. All rights reserved.</div>
+      <div className="register-page-footer">
+        © 2024 Hospitalis Systems. All rights reserved.
+      </div>
     </div>
   );
 };

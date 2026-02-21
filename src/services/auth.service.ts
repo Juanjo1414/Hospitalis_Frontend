@@ -8,6 +8,7 @@ export const registerUser = (data: {
   fullName: string;
   email: string;
   password: string;
+  specialty?: string; 
 }) => API.post('/auth/register', data);
 
 export const loginUser = (data: {
