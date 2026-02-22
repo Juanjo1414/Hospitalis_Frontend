@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/globals.css';
 import '../styles/dashboard.css';
+import { getAppointments } from '../services/appointments.service';
+import type { Appointment as ApiAppointment } from '../services/appointments.service';
+import { getPatients } from '../services/patient.service';
 
 /* ──────────────────────────────────────────────────────────
    Tipos
@@ -10,14 +13,6 @@ interface Doctor {
   fullName: string;
   email: string;
   specialty?: string;
-}
-
-interface Appointment {
-  time: string;
-  period: string;
-  patientName: string;
-  reason: string;
-  status: 'confirmed' | 'pending';
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -30,16 +25,6 @@ const NAV_ITEMS = [
   { icon: 'chat_bubble',    label: 'Messages',     path: '/messages' },
   { icon: 'medication',     label: 'Pharmacy',     path: '/pharmacy' },
   { icon: 'settings',       label: 'Settings',     path: '/settings' },
-];
-
-/* ──────────────────────────────────────────────────────────
-   Datos mock para el Sprint 2 (se reemplazarán por API)
-────────────────────────────────────────────────────────── */
-const MOCK_APPOINTMENTS: Appointment[] = [
-  { time: '09:00', period: 'AM', patientName: 'John Doe',      reason: 'General Checkup',    status: 'confirmed' },
-  { time: '10:30', period: 'AM', patientName: 'Maria García',  reason: 'Follow-up Visit',    status: 'confirmed' },
-  { time: '12:00', period: 'PM', patientName: 'Carlos Ruiz',   reason: 'Blood Pressure',     status: 'pending'   },
-  { time: '02:00', period: 'PM', patientName: 'Ana Torres',    reason: 'Lab Results Review', status: 'confirmed' },
 ];
 
 /* ──────────────────────────────────────────────────────────
@@ -70,6 +55,24 @@ function getGreeting(): string {
   return 'Good evening';
 }
 
+function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function fmtTime(t: string): { time: string; period: string } {
+  const [h, m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return { time: `${h12}:${String(m).padStart(2, '0')}`, period };
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  checkup: 'General Checkup', follow_up: 'Follow-up Visit',
+  consultation: 'Consultation', emergency: 'Emergency',
+  procedure: 'Procedure', lab: 'Lab Review',
+};
+
 /* ──────────────────────────────────────────────────────────
    Component
 ────────────────────────────────────────────────────────── */
@@ -78,6 +81,11 @@ export const Dashboard = () => {
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [activePath, setActivePath] = useState('/dashboard');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Estado dinámico
+  const [todayAppts, setTodayAppts] = useState<ApiAppointment[]>([]);
+  const [totalPatients, setTotalPatients] = useState<number | null>(null);
+  const [loadingAppts, setLoadingAppts] = useState(true);
 
   /* Leer datos del médico autenticado desde localStorage */
   useEffect(() => {
@@ -92,15 +100,9 @@ export const Dashboard = () => {
       try {
         setDoctor(JSON.parse(stored));
       } catch {
-        /* si el JSON está corrupto, usar fallback */
         setDoctor({ fullName: 'Doctor', email: '', specialty: 'General Medicine' });
       }
     } else {
-      /*
-       * Si no hay user en localStorage (login previo no lo guardó),
-       * decodificamos el JWT para obtener el nombre.
-       * El payload del JWT tiene: { sub, fullName, email }
-       */
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setDoctor({
@@ -113,6 +115,31 @@ export const Dashboard = () => {
       }
     }
   }, [navigate]);
+
+  /* Cargar citas de hoy y stats desde la API */
+  useEffect(() => {
+    const load = async () => {
+      setLoadingAppts(true);
+      try {
+        const [apptsTodayRes, patientsRes] = await Promise.allSettled([
+          getAppointments({ date: todayISO(), limit: 10 }),
+          getPatients({ limit: 1 }),
+        ]);
+
+        if (apptsTodayRes.status === 'fulfilled') {
+          setTodayAppts(apptsTodayRes.value.data.data);
+        }
+        if (patientsRes.status === 'fulfilled') {
+          setTotalPatients(patientsRes.value.data.total);
+        }
+      } catch (err) {
+        console.error('Dashboard API error:', err);
+      } finally {
+        setLoadingAppts(false);
+      }
+    };
+    load();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -128,6 +155,11 @@ export const Dashboard = () => {
   const displayName = doctor?.fullName ?? '...';
   const specialty   = doctor?.specialty ?? '';
   const initials    = doctor ? getInitials(doctor.fullName) : '?';
+
+  // Stats derivados de datos reales
+  const todayCount     = todayAppts.length;
+  const pendingCount   = todayAppts.filter(a => a.status === 'scheduled' || a.status === 'in_progress').length;
+  const confirmedCount = todayAppts.filter(a => a.status === 'confirmed').length;
 
   return (
     <div className="app-shell">
@@ -184,7 +216,6 @@ export const Dashboard = () => {
       <div className="main-area">
         {/* ── Topbar ── */}
         <header className="topbar">
-          {/* Search */}
           <div className="topbar-search">
             <div className="search-box">
               <span className="search-icon material-symbols-outlined">search</span>
@@ -197,19 +228,13 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="topbar-actions">
-            {/* Notificaciones */}
             <button className="topbar-icon-btn" aria-label="Notifications">
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>notifications</span>
               <span className="notif-badge" />
             </button>
-
             <button className="topbar-text-btn">Help</button>
-
-            <button className="topbar-logout-btn" onClick={handleLogout}>
-              Log Out
-            </button>
+            <button className="topbar-logout-btn" onClick={handleLogout}>Log Out</button>
           </div>
         </header>
 
@@ -223,26 +248,28 @@ export const Dashboard = () => {
             <p>{getTodayStr()} · Here is your daily activity summary.</p>
           </div>
 
-          {/* Stats */}
+          {/* Stats — ahora con datos reales de citas de hoy */}
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-icon-wrap blue">
                 <span className="material-symbols-outlined">calendar_month</span>
               </div>
               <div className="stat-body">
-                <div className="stat-label">Appointments</div>
-                <div className="stat-value">12</div>
+                <div className="stat-label">Appointments Today</div>
+                <div className="stat-value">{loadingAppts ? '—' : todayCount}</div>
               </div>
-              <span className="stat-badge green">+2 today</span>
+              <span className="stat-badge green">
+                {loadingAppts ? '...' : `${todayCount} today`}
+              </span>
             </div>
 
             <div className="stat-card">
               <div className="stat-icon-wrap orange">
-                <span className="material-symbols-outlined">description</span>
+                <span className="material-symbols-outlined">pending_actions</span>
               </div>
               <div className="stat-body">
-                <div className="stat-label">Pending Reports</div>
-                <div className="stat-value">4</div>
+                <div className="stat-label">Pending / In Progress</div>
+                <div className="stat-value">{loadingAppts ? '—' : pendingCount}</div>
               </div>
               <span className="stat-badge orange">Pending</span>
             </div>
@@ -252,27 +279,27 @@ export const Dashboard = () => {
                 <span className="material-symbols-outlined">group</span>
               </div>
               <div className="stat-body">
-                <div className="stat-label">New Patients</div>
-                <div className="stat-value">18</div>
+                <div className="stat-label">Total Patients</div>
+                <div className="stat-value">{totalPatients ?? '—'}</div>
               </div>
-              <span className="stat-badge green">+5 this week</span>
+              <span className="stat-badge green">Registered</span>
             </div>
 
             <div className="stat-card">
               <div className="stat-icon-wrap green">
-                <span className="material-symbols-outlined">favorite</span>
+                <span className="material-symbols-outlined">check_circle</span>
               </div>
               <div className="stat-body">
-                <div className="stat-label">Patient Satisfaction</div>
-                <div className="stat-value">96%</div>
+                <div className="stat-label">Confirmed Today</div>
+                <div className="stat-value">{loadingAppts ? '—' : confirmedCount}</div>
               </div>
-              <span className="stat-badge green">↑ 3%</span>
+              <span className="stat-badge green">Confirmed</span>
             </div>
           </div>
 
           {/* Sección 2 columnas */}
           <div className="section-grid">
-            {/* ── Today's Appointments ── */}
+            {/* ── Today's Appointments — DINÁMICO ── */}
             <div className="card">
               <div className="card-header">
                 <div className="card-title">
@@ -287,30 +314,85 @@ export const Dashboard = () => {
                 </button>
               </div>
               <div className="card-body">
-                <div className="appt-list">
-                  {MOCK_APPOINTMENTS.map((appt, i) => (
-                    <div key={i} className="appt-item">
-                      <div className="appt-time-col">
-                        <div className="appt-time">{appt.time}</div>
-                        <div className="appt-period">{appt.period}</div>
-                      </div>
-                      <div className="appt-avatar">
-                        {getInitials(appt.patientName)}
-                      </div>
-                      <div className="appt-info">
-                        <div className="appt-name">{appt.patientName}</div>
-                        <div className="appt-reason">{appt.reason}</div>
-                      </div>
-                      <span className={`appt-status ${appt.status}`}>
-                        {appt.status === 'confirmed' ? 'Confirmed' : 'Pending'}
-                      </span>
+
+                {/* Loading */}
+                {loadingAppts && (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 14 }}>
+                    Loading appointments...
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!loadingAppts && todayAppts.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '32px 16px', color: '#94a3b8' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 40, display: 'block', marginBottom: 8 }}>
+                      event_available
+                    </span>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: '#475569', marginBottom: 4 }}>
+                      No appointments today
                     </div>
-                  ))}
-                </div>
+                    <div style={{ fontSize: 13 }}>Your schedule is clear for today.</div>
+                    <button
+                      className="card-action"
+                      style={{ marginTop: 12, fontSize: 13 }}
+                      onClick={() => handleNavClick('/appointments')}
+                    >
+                      + Schedule appointment
+                    </button>
+                  </div>
+                )}
+
+                {/* Lista de citas reales */}
+                {!loadingAppts && todayAppts.length > 0 && (
+                  <div className="appt-list">
+                    {todayAppts.map((appt) => {
+                      const pat = typeof appt.patientId === 'object' ? appt.patientId : null;
+                      const patientName = pat
+                        ? `${pat.firstName} ${pat.lastName}`
+                        : 'Patient';
+                      const reason = TYPE_LABELS[appt.type] ?? appt.type;
+                      const { time, period } = fmtTime(appt.startTime);
+
+                      // Mapear status a clase CSS existente
+                      const statusClass =
+                        appt.status === 'confirmed'  ? 'confirmed' :
+                        appt.status === 'completed'  ? 'confirmed' :
+                        appt.status === 'cancelled'  ? 'cancelled' : 'pending';
+
+                      const statusLabel =
+                        appt.status === 'confirmed'   ? 'Confirmed'   :
+                        appt.status === 'completed'   ? 'Completed'   :
+                        appt.status === 'in_progress' ? 'In Progress' :
+                        appt.status === 'cancelled'   ? 'Cancelled'   :
+                        appt.status === 'no_show'     ? 'No Show'     : 'Pending';
+
+                      return (
+                        <div key={appt._id} className="appt-item">
+                          <div className="appt-time-col">
+                            <div className="appt-time">{time}</div>
+                            <div className="appt-period">{period}</div>
+                          </div>
+                          <div className="appt-avatar">
+                            {getInitials(patientName)}
+                          </div>
+                          <div className="appt-info">
+                            <div className="appt-name">{patientName}</div>
+                            <div className="appt-reason">
+                              {reason}{appt.room ? ` · ${appt.room}` : ''}
+                            </div>
+                          </div>
+                          <span className={`appt-status ${statusClass}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* ── Quick Actions ── */}
+            {/* ── Quick Actions — sin cambios ── */}
             <div className="card">
               <div className="card-header">
                 <div className="card-title">
