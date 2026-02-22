@@ -1,0 +1,20 @@
+/* ── Appointments Module CSS ────────────────────────── */
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.status-btn {
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.status-btn:hover { background: #f8fafc; border-color: #e5e7eb; }
+.status-btn.active { background: #f0f9ff; border-color: #137fec; }
