@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { JSX } from 'react';
 import { Link } from 'react-router-dom';
 import type { Patient } from '../services/patient.service';
 import {
@@ -28,7 +27,15 @@ const STATUS_STYLE: Record<string,[string,string]> = {
 const BLOOD_TYPES = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
 
 const ini = (a='',b='') => `${a[0]??''}${b[0]??''}`.toUpperCase();
-const calcAge = (d:string) => Math.floor((Date.now()-new Date(d).getTime())/31557600000);
+const calcAge = (d: string): string => {
+  const birth = new Date(d);
+  const today = new Date();
+  if (isNaN(birth.getTime()) || birth > today) return 'Invalid';
+  let years = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) years--;
+  return String(years);
+};
 
 const emptyForm = { firstName:'',lastName:'',dateOfBirth:'',gender:'',email:'',phone:'',address:'',emergencyContactName:'',emergencyContactPhone:'',bloodType:'',allergies:'',chronicConditions:'',notes:'',status:'active' };
 
@@ -84,11 +91,36 @@ export const Patients = () => {
   const openCreate = ()=>{ setForm(emptyForm); setErr(''); setView('create'); };
   const openDetail = async(id:string)=>{ try{ const r=await getPatient(id); setSel(r.data); setView('detail'); }catch{ setErr('Error'); }};
   const openEdit = (p:Patient)=>{ setSel(p); setForm({firstName:p.firstName,lastName:p.lastName,dateOfBirth:p.dateOfBirth?.split('T')[0]||'',gender:p.gender,email:p.email,phone:p.phone||'',address:p.address||'',emergencyContactName:p.emergencyContactName||'',emergencyContactPhone:p.emergencyContactPhone||'',bloodType:p.bloodType||'',allergies:(p.allergies||[]).join(', '),chronicConditions:(p.chronicConditions||[]).join(', '),notes:p.notes||'',status:p.status}); setErr(''); setView('edit'); };
-  const submit = async(e:React.FormEvent)=>{ e.preventDefault(); setSaving(true); setErr(''); const pay={...form,allergies:form.allergies?form.allergies.split(',').map((s:string)=>s.trim()):[],chronicConditions:form.chronicConditions?form.chronicConditions.split(',').map((s:string)=>s.trim()):[]}; try{ if(view==='create') await createPatient(pay as any); else if(sel2) await updatePatient(sel2._id,pay as any); await load(); setView('list'); }catch(e:any){ setErr(e?.response?.data?.message||'Error'); }finally{ setSaving(false); }};
+  const submit = async(e:React.FormEvent)=>{ 
+    e.preventDefault(); 
+    setErr('');
+    // Validar que la fecha de nacimiento no sea futura
+    if (form.dateOfBirth) {
+      const birth = new Date(form.dateOfBirth);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      if (birth > today) {
+        setErr('Date of birth cannot be a future date.');
+        return;
+      }
+    }
+    setSaving(true); 
+    const pay={...form,allergies:form.allergies?form.allergies.split(',').map((s:string)=>s.trim()):[],chronicConditions:form.chronicConditions?form.chronicConditions.split(',').map((s:string)=>s.trim()):[]}; 
+    try{ 
+      if(view==='create') await createPatient(pay as any); 
+      else if(sel2) await updatePatient(sel2._id,pay as any); 
+      await load(); 
+      setView('list'); 
+    }catch(e:any){ 
+      setErr(e?.response?.data?.message||'Error'); 
+    }finally{ 
+      setSaving(false); 
+    }
+  };
   const del = async(id:string)=>{ if(!confirm('Delete?')) return; try{ await deletePatient(id); await load(); setView('list'); }catch{ setErr('Error'); }};
 
   const pages = Math.ceil(total/10);
-  const NAV_ICONS: Record<string, JSX.Element> = {
+  const NAV_ICONS: Record<string, React.ReactElement> = {
     Dashboard: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
     Patients:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
     Appointments: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
@@ -282,7 +314,7 @@ export const Patients = () => {
           {[
             { title:'Personal Identity', fields:[
               {l:'First Name *',k:'firstName',req:true,ph:'e.g. John'},{l:'Last Name *',k:'lastName',req:true,ph:'e.g. Doe'},
-              {l:'Date of Birth *',k:'dateOfBirth',req:true,type:'date'},{l:'Gender *',k:'gender',req:true,type:'select',opts:[['','Select gender'],['male','Male'],['female','Female'],['other','Other']]},
+              {l:'Date of Birth *',k:'dateOfBirth',req:true,type:'date',max:new Date().toISOString().split('T')[0]},{l:'Gender *',k:'gender',req:true,type:'select',opts:[['','Select gender'],['male','Male'],['female','Female'],['other','Other']]},
             ]},
             { title:'Contact Information', fields:[
               {l:'Email *',k:'email',req:true,type:'email',ph:'patient@email.com'},{l:'Phone',k:'phone',ph:'+57 300 000 0000'},
@@ -312,7 +344,7 @@ export const Patients = () => {
                     ):f.type==='textarea'?(
                       <textarea style={{ ...inp,resize:'vertical' }} rows={3} value={(form as any)[f.k]} placeholder={f.ph} onChange={e=>setForm((p:any)=>({...p,[f.k]:e.target.value}))}/>
                     ):(
-                      <input style={inp} type={f.type||'text'} required={f.req} value={(form as any)[f.k]} placeholder={f.ph} onChange={e=>setForm((p:any)=>({...p,[f.k]:e.target.value}))}/>
+                      <input style={inp} type={f.type||'text'} required={f.req} value={(form as any)[f.k]} placeholder={f.ph} max={f.max} onChange={e=>setForm((p:any)=>({...p,[f.k]:e.target.value}))}/>
                     )}
                   </label>
                 ))}
