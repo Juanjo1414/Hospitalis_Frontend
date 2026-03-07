@@ -1,3 +1,4 @@
+@import "tailwindcss";
 @import './styles/variables.css';
 
 * {
@@ -11,6 +12,6 @@ body {
   background: #f9fafb;
 }
 
-/* avoid horizontal scroll caused by 100vw usage elsewhere */
-html, body { overflow-x: hidden; }
-
+html, body {
+  overflow-x: hidden;
+}
