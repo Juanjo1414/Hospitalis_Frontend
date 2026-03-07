@@ -51,8 +51,6 @@ const card: React.CSSProperties = { background: C.white, borderRadius: 12, boxSh
 const inp: React.CSSProperties  = { padding: '9px 12px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, outline: 'none', width: '100%', boxSizing: 'border-box' };
 const btnP: React.CSSProperties = { background: C.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' };
 const btnG: React.CSSProperties = { background: 'transparent', color: C.sub, border: `1px solid ${C.border}`, borderRadius: 10, padding: '8px 16px', fontSize: 13, cursor: 'pointer' };
-const btnD: React.CSSProperties = { background: C.redBg, color: C.red, border: 'none', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' };
-
 const ini = (name = '') => name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('');
 
 const RoleBadge = ({ role }: { role: string }) => (
@@ -316,7 +314,7 @@ export const Users = () => {
 
       {/* Nota sobre registro de nuevos usuarios */}
       <div style={{ marginTop: 20, padding: '14px 18px', background: C.blueBg, border: `1px solid #bfdbfe`, borderRadius: 10, fontSize: 13, color: C.blue }}>
-        ℹ️ Para crear nuevos usuarios, deben registrarse desde <strong>/register</strong>. El administrador puede cambiar su rol y estado desde esta página.
+        ℹ️ Para crear nuevos usuarios, deben registrarse desde <strong>el Login/Register</strong>. El administrador puede cambiar su rol y estado desde esta página.
       </div>
 
       {/* Modal edición */}
