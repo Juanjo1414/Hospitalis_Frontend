@@ -238,7 +238,7 @@ export const Register = () => {
       </div>
 
       <div className="register-page-footer">
-        © 2024 Hospitalis Systems. All rights reserved.
+        © 2026 Hospitalis Systems. All rights reserved.
       </div>
     </div>
   );

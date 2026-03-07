@@ -9,6 +9,7 @@ import { MedicalRecords }  from './pages/MedicalRecords';
 import { Messages }        from './pages/Messages';
 import { Pharmacy }        from './pages/Pharmacy';
 import { Settings }        from './pages/Settings';
+import { Users }           from './pages/Users';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { AuthLayout }      from './layouts/AuthLayout';
 import { PrivateRoute }    from './components/PrivateRoute';
@@ -37,8 +38,9 @@ function App() {
             <Route path="/messages"     element={<Messages />} />
             <Route path="/pharmacy"     element={<Pharmacy />} />
             <Route path="/settings"     element={<Settings />} />
+            <Route path="/users"        element={<Users />} />
 
-            {/* HOSP-45 / HOSP-47: Historial médico y notas clínicas */}
+            {/* Historial médico y notas clínicas */}
             <Route path="/patients/:patientId/history" element={<MedicalRecords />} />
           </Route>
         </Route>

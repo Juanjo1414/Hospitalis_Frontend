@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   getMedicalRecordsByPatient,
   createMedicalRecord,
+  updateMedicalRecord,
+  deleteMedicalRecord,
 } from '../services/medical-records.service';
 import type {
   MedicalRecord,
@@ -53,52 +55,82 @@ function getDoctorId(): string {
     if (!token) return '';
     const payload = JSON.parse(atob(token.split('.')[1]));
     return payload.sub ?? '';
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
-// ── Tipos de vista ─────────────────────────────────────────────────────────────
-type View = 'history' | 'new_note';
+function getDoctorRole(): string {
+  try {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return '';
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role ?? '';
+  } catch { return ''; }
+}
 
-// ── Formulario vacío ───────────────────────────────────────────────────────────
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+type View = 'history' | 'new_note' | 'edit';
+
 const emptyForm = {
-  type: 'clinical_note' as RecordType,
-  status: 'active' as RecordStatus,
-  title: '',
+  type:        'clinical_note' as RecordType,
+  status:      'active'        as RecordStatus,
+  title:       '',
   description: '',
-  icdCode: '',
-  notes: '',
-  recordDate: new Date().toISOString().split('T')[0],
+  icdCode:     '',
+  notes:       '',
+  recordDate:  new Date().toISOString().split('T')[0],
 };
 
-// ── Componente principal ───────────────────────────────────────────────────────
+// ── Estilos base ──────────────────────────────────────────────────────────────
+const C = {
+  primary: '#137fec', white: '#ffffff',
+  bg: '#f8fafc', border: '#e2e8f0',
+  text: '#0f172a', sub: '#64748b', muted: '#94a3b8',
+  red: '#dc2626', redBg: '#fef2f2',
+  green: '#16a34a', greenBg: '#f0fdf4',
+};
+
+const inp: React.CSSProperties = {
+  width: '100%', padding: '10px 12px',
+  border: `1px solid ${C.border}`, borderRadius: '8px',
+  fontSize: '13px', color: C.text,
+  outline: 'none', boxSizing: 'border-box',
+};
+const btnP: React.CSSProperties = {
+  padding: '10px 24px', borderRadius: '8px', border: 'none',
+  backgroundColor: C.primary, color: C.white,
+  fontWeight: 600, fontSize: '14px', cursor: 'pointer',
+};
+const btnG: React.CSSProperties = {
+  padding: '10px 24px', borderRadius: '8px',
+  border: `1px solid ${C.border}`, backgroundColor: C.white,
+  color: '#374151', fontWeight: 600, fontSize: '14px', cursor: 'pointer',
+};
+
+// ── Componente ────────────────────────────────────────────────────────────────
 export const MedicalRecords: React.FC = () => {
   const { patientId } = useParams<{ patientId: string }>();
-  const navigate = useNavigate();
+  const navigate      = useNavigate();
 
-  const [view, setView] = useState<View>('history');
-  const [records, setRecords] = useState<MedicalRecord[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Filtros
-  const [filterType, setFilterType] = useState<RecordType | ''>('');
-  const [filterStatus, setFilterStatus] = useState<RecordStatus | ''>('');
-
-  // Formulario nueva nota
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
+  const [view,        setView]        = useState<View>('history');
+  const [records,     setRecords]     = useState<MedicalRecord[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [page,        setPage]        = useState(1);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState('');
+  const [filterType,  setFilterType]  = useState<RecordType | ''>('');
+  const [filterStatus,setFilterStatus]= useState<RecordStatus | ''>('');
+  const [form,        setForm]        = useState(emptyForm);
+  const [editingId,   setEditingId]   = useState<string | null>(null);
+  const [saving,      setSaving]      = useState(false);
+  const [saveError,   setSaveError]   = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const LIMIT = 10;
+  const LIMIT   = 10;
+  const isAdmin = getDoctorRole() === 'admin';
 
-  // ── Cargar historial ─────────────────────────────────────────────────────────
+  // ── FIX 1: guard de patientId — no llama a la API si es undefined ─────────
   const loadRecords = useCallback(async () => {
-    if (!patientId) return;
+    if (!patientId || patientId === 'undefined') return;
     setLoading(true);
     setError('');
     try {
@@ -106,10 +138,10 @@ export const MedicalRecords: React.FC = () => {
         type:   filterType   || undefined,
         status: filterStatus || undefined,
         page,
-        limit: LIMIT,
+        limit:  LIMIT,
       });
-      setRecords(res.data.data ?? []);
-      setTotal(res.data.total ?? 0);
+      setRecords(res.data.data  ?? []);
+      setTotal(res.data.total   ?? 0);
     } catch {
       setError('No se pudo cargar el historial médico.');
     } finally {
@@ -119,7 +151,7 @@ export const MedicalRecords: React.FC = () => {
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
 
-  // ── Guardar nueva nota ────────────────────────────────────────────────────────
+  // ── Guardar (crear o editar) ──────────────────────────────────────────────
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId) return;
@@ -127,23 +159,36 @@ export const MedicalRecords: React.FC = () => {
       setSaveError('El título y la descripción son obligatorios.');
       return;
     }
-    setSaving(true);
-    setSaveError('');
-    setSaveSuccess(false);
+    setSaving(true); setSaveError(''); setSaveSuccess(false);
     try {
-      await createMedicalRecord({
-        patientId,
-        doctorId: getDoctorId(),
-        type:        form.type,
-        status:      form.status,
-        title:       form.title.trim(),
-        description: form.description.trim(),
-        icdCode:     form.icdCode.trim() || undefined,
-        notes:       form.notes.trim()   || undefined,
-        recordDate:  form.recordDate,
-      });
+      if (view === 'edit' && editingId) {
+        // FIX 2: actualizar registro existente via PATCH /:id
+        await updateMedicalRecord(editingId, {
+          type:        form.type,
+          status:      form.status,
+          title:       form.title.trim(),
+          description: form.description.trim(),
+          icdCode:     form.icdCode.trim()  || undefined,
+          notes:       form.notes.trim()    || undefined,
+          recordDate:  form.recordDate,
+        });
+      } else {
+        // Crear nuevo registro con patientId del URL param
+        await createMedicalRecord({
+          patientId,
+          doctorId:    getDoctorId(),
+          type:        form.type,
+          status:      form.status,
+          title:       form.title.trim(),
+          description: form.description.trim(),
+          icdCode:     form.icdCode.trim()  || undefined,
+          notes:       form.notes.trim()    || undefined,
+          recordDate:  form.recordDate,
+        });
+      }
       setSaveSuccess(true);
       setForm(emptyForm);
+      setEditingId(null);
       setView('history');
       setPage(1);
       await loadRecords();
@@ -154,311 +199,202 @@ export const MedicalRecords: React.FC = () => {
     }
   };
 
-  // ── Estilos inline (igual que el resto del proyecto) ─────────────────────────
-  const s = {
-    page: {
-      minHeight: '100vh',
-      backgroundColor: '#f8fafc',
-      fontFamily: "'Inter', sans-serif",
-    },
-    // Header
-    header: {
-      backgroundColor: '#ffffff',
-      borderBottom: '1px solid #e2e8f0',
-      padding: '16px 32px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-    },
-    backBtn: {
-      display: 'flex', alignItems: 'center', gap: '6px',
-      background: 'none', border: 'none',
-      color: '#64748b', cursor: 'pointer', fontSize: '14px',
-      padding: '6px 10px', borderRadius: '6px',
-    },
-    headerTitle: {
-      fontSize: '18px', fontWeight: 700, color: '#0f172a', flex: 1,
-    },
-    tabBar: {
-      display: 'flex', gap: '4px',
-    },
-    tab: (active: boolean): React.CSSProperties => ({
-      padding: '8px 18px', borderRadius: '8px', border: 'none',
-      cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-      backgroundColor: active ? '#137fec' : 'transparent',
-      color: active ? '#ffffff' : '#64748b',
-      transition: 'all 0.15s',
-    }),
-    // Content
-    content: { padding: '32px', maxWidth: '900px', margin: '0 auto' },
-    // Filters
-    filters: {
-      display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap',
-    },
-    select: {
-      padding: '8px 12px', border: '1px solid #e2e8f0',
-      borderRadius: '8px', fontSize: '13px', color: '#374151',
-      backgroundColor: '#ffffff', cursor: 'pointer',
-    },
-    // Timeline
-    timeline: { display: 'flex', flexDirection: 'column', gap: '16px' },
-    // Record card
-    card: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: '12px',
-      padding: '20px',
-      display: 'flex', gap: '16px',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-    },
-    cardLeft: {
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-      width: '80px', flexShrink: 0,
-    },
-    cardDate: { fontSize: '11px', color: '#94a3b8', textAlign: 'center' as const },
-    cardBody: { flex: 1 },
-    cardHeader: {
-      display: 'flex', alignItems: 'flex-start',
-      justifyContent: 'space-between', gap: '12px', marginBottom: '8px',
-    },
-    cardTitle: { fontSize: '15px', fontWeight: 700, color: '#0f172a' },
-    cardDesc: { fontSize: '13px', color: '#64748b', lineHeight: 1.6 },
-    cardIcd: {
-      display: 'inline-block', marginTop: '8px',
-      padding: '2px 8px', borderRadius: '4px',
-      fontSize: '11px', fontWeight: 600,
-      backgroundColor: '#f1f5f9', color: '#475569',
-    },
-    badge: (bg: string, text: string): React.CSSProperties => ({
-      display: 'inline-block', padding: '3px 10px',
-      borderRadius: '999px', fontSize: '11px', fontWeight: 600,
-      backgroundColor: bg, color: text,
-    }),
-    typeBadge: (type: RecordType): React.CSSProperties => ({
-      display: 'inline-block', padding: '3px 10px',
-      borderRadius: '999px', fontSize: '11px', fontWeight: 600,
-      backgroundColor: TYPE_COLORS[type].bg,
-      color: TYPE_COLORS[type].text,
-      border: `1px solid ${TYPE_COLORS[type].border}`,
-    }),
-    // Empty state
-    empty: {
-      textAlign: 'center' as const, padding: '64px 0',
-      color: '#94a3b8', fontSize: '14px',
-    },
-    emptyIcon: { fontSize: '40px', marginBottom: '12px' },
-    // Pagination
-    pagination: {
-      display: 'flex', justifyContent: 'center',
-      gap: '8px', marginTop: '28px',
-    },
-    pageBtn: (active: boolean): React.CSSProperties => ({
-      width: '36px', height: '36px', borderRadius: '8px',
-      border: `1px solid ${active ? '#137fec' : '#e2e8f0'}`,
-      backgroundColor: active ? '#137fec' : '#ffffff',
-      color: active ? '#ffffff' : '#374151',
-      cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-    }),
-    // Form
-    form: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: '12px',
-      padding: '32px',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-    },
-    formTitle: { fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '24px' },
-    grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' },
-    field: { marginBottom: '16px' },
-    label: {
-      display: 'block', fontSize: '13px',
-      fontWeight: 600, color: '#374151', marginBottom: '6px',
-    },
-    input: {
-      width: '100%', padding: '10px 12px',
-      border: '1px solid #e2e8f0', borderRadius: '8px',
-      fontSize: '13px', color: '#0f172a',
-      outline: 'none', boxSizing: 'border-box' as const,
-    },
-    textarea: {
-      width: '100%', padding: '10px 12px',
-      border: '1px solid #e2e8f0', borderRadius: '8px',
-      fontSize: '13px', color: '#0f172a', resize: 'vertical' as const,
-      outline: 'none', boxSizing: 'border-box' as const, minHeight: '90px',
-    },
-    actions: { display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' },
-    btnPrimary: {
-      padding: '10px 24px', borderRadius: '8px', border: 'none',
-      backgroundColor: '#137fec', color: '#ffffff',
-      fontWeight: 600, fontSize: '14px', cursor: 'pointer',
-    },
-    btnSecondary: {
-      padding: '10px 24px', borderRadius: '8px',
-      border: '1px solid #e2e8f0', backgroundColor: '#ffffff',
-      color: '#374151', fontWeight: 600, fontSize: '14px', cursor: 'pointer',
-    },
-    errorBox: {
-      backgroundColor: '#fef2f2', border: '1px solid #fca5a5',
-      borderRadius: '8px', padding: '12px 16px',
-      color: '#dc2626', fontSize: '13px', marginBottom: '16px',
-    },
-    successBox: {
-      backgroundColor: '#f0fdf4', border: '1px solid #86efac',
-      borderRadius: '8px', padding: '12px 16px',
-      color: '#16a34a', fontSize: '13px', marginBottom: '16px',
-    },
-    dot: {
-      width: '10px', height: '10px', borderRadius: '50%',
-      backgroundColor: '#137fec', flexShrink: 0,
-    },
-    line: {
-      width: '2px', flex: 1, backgroundColor: '#e2e8f0',
-      minHeight: '20px',
-    },
-  } satisfies Record<string, React.CSSProperties | ((...args: any[]) => React.CSSProperties)>;
+  // ── Abrir edición ─────────────────────────────────────────────────────────
+  const openEdit = (rec: MedicalRecord) => {
+    setEditingId(rec._id);
+    setForm({
+      type:        rec.type,
+      status:      rec.status,
+      title:       rec.title,
+      description: rec.description,
+      icdCode:     rec.icdCode  ?? '',
+      notes:       rec.notes    ?? '',
+      recordDate:  rec.recordDate.split('T')[0],
+    });
+    setSaveError(''); setSaveSuccess(false);
+    setView('edit');
+  };
+
+  // ── Eliminar ──────────────────────────────────────────────────────────────
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+    try {
+      await deleteMedicalRecord(id);
+      await loadRecords();
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        alert('Solo los administradores pueden eliminar registros médicos.');
+      } else {
+        alert(err?.response?.data?.message || 'Error al eliminar el registro.');
+      }
+    }
+  };
 
   const totalPages = Math.ceil(total / LIMIT);
 
-  // ── Render ────────────────────────────────────────────────────────────────────
-  return (
-    <div style={s.page}>
+  // ── Label helper ──────────────────────────────────────────────────────────
+  const Lbl = ({ children }: { children: React.ReactNode }) => (
+    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+      {children}
+    </label>
+  );
 
-      {/* Header */}
-      <div style={s.header}>
-        <button style={s.backBtn} onClick={() => navigate('/patients')}>
+  // ═════════════════════════════════════════════════════════════════════════
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: C.bg, fontFamily: "'Inter', sans-serif" }}>
+
+      {/* ── Header ── */}
+      <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: '16px 32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <button
+          style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: '14px', padding: '6px 10px', borderRadius: '6px' }}
+          onClick={() => navigate('/patients')}
+        >
           ← Pacientes
         </button>
         <span style={{ color: '#cbd5e1' }}>|</span>
-        <span style={s.headerTitle}>📋 Historial Médico</span>
-        <div style={s.tabBar}>
-          <button style={s.tab(view === 'history')} onClick={() => setView('history')}>
-            Historial
-          </button>
-          <button style={s.tab(view === 'new_note')} onClick={() => { setView('new_note'); setSaveSuccess(false); setSaveError(''); }}>
-            + Nueva Nota
-          </button>
+        <span style={{ fontSize: '18px', fontWeight: 700, color: C.text, flex: 1 }}>📋 Historial Médico</span>
+
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {(['history', 'new_note'] as const).map((v) => (
+            <button key={v} style={{
+              padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+              fontWeight: 600, fontSize: '13px',
+              backgroundColor: view === v ? C.primary : 'transparent',
+              color:           view === v ? C.white  : C.sub,
+            }}
+              onClick={() => {
+                if (v === 'new_note') { setForm(emptyForm); setEditingId(null); setSaveError(''); setSaveSuccess(false); }
+                setView(v);
+              }}
+            >
+              {v === 'history' ? 'Historial' : '+ Nueva Nota'}
+            </button>
+          ))}
+          {view === 'edit' && (
+            <button style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'default', fontWeight: 600, fontSize: '13px', backgroundColor: C.primary, color: C.white }}>
+              ✏️ Editando
+            </button>
+          )}
         </div>
       </div>
 
-      <div style={s.content}>
+      <div style={{ padding: '32px', maxWidth: '900px', margin: '0 auto' }}>
 
-        {/* ── VISTA: Historial ── */}
+        {/* ══════════════════════════════════════════════════════════════════
+            VISTA: Historial
+        ═══════════════════════════════════════════════════════════════════ */}
         {view === 'history' && (
           <>
             {/* Filtros */}
-            <div style={s.filters}>
-              <select
-                style={s.select}
-                value={filterType}
-                onChange={(e) => { setFilterType(e.target.value as RecordType | ''); setPage(1); }}
-              >
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+              <select style={{ padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: '8px', fontSize: '13px', backgroundColor: C.white, cursor: 'pointer' }}
+                value={filterType} onChange={(e) => { setFilterType(e.target.value as RecordType | ''); setPage(1); }}>
                 <option value="">Todos los tipos</option>
-                {(Object.keys(TYPE_LABELS) as RecordType[]).map((t) => (
-                  <option key={t} value={t}>{TYPE_LABELS[t]}</option>
-                ))}
+                {(Object.keys(TYPE_LABELS) as RecordType[]).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
               </select>
-              <select
-                style={s.select}
-                value={filterStatus}
-                onChange={(e) => { setFilterStatus(e.target.value as RecordStatus | ''); setPage(1); }}
-              >
+              <select style={{ padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: '8px', fontSize: '13px', backgroundColor: C.white, cursor: 'pointer' }}
+                value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value as RecordStatus | ''); setPage(1); }}>
                 <option value="">Todos los estados</option>
                 <option value="active">Activo</option>
                 <option value="resolved">Resuelto</option>
                 <option value="archived">Archivado</option>
               </select>
               {(filterType || filterStatus) && (
-                <button
-                  style={{ ...s.select, color: '#ef4444', cursor: 'pointer' }}
-                  onClick={() => { setFilterType(''); setFilterStatus(''); setPage(1); }}
-                >
-                  ✕ Limpiar filtros
+                <button style={{ padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: '8px', fontSize: '13px', backgroundColor: C.white, color: C.red, cursor: 'pointer' }}
+                  onClick={() => { setFilterType(''); setFilterStatus(''); setPage(1); }}>
+                  ✕ Limpiar
                 </button>
               )}
             </div>
 
-            {/* Estado de carga / error */}
-            {loading && (
-              <div style={s.empty}>
-                <div style={s.emptyIcon}>⏳</div>
-                Cargando historial...
-              </div>
-            )}
-            {!loading && error && <div style={s.errorBox}>{error}</div>}
+            {/* Loading */}
+            {loading && <div style={{ textAlign: 'center', padding: '64px 0', color: C.muted, fontSize: '14px' }}><div style={{ fontSize: '40px', marginBottom: '12px' }}>⏳</div>Cargando historial...</div>}
 
-            {/* Timeline */}
+            {/* Error */}
+            {!loading && error && <div style={{ backgroundColor: C.redBg, border: '1px solid #fca5a5', borderRadius: '8px', padding: '12px 16px', color: C.red, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
+
+            {/* Vacío */}
             {!loading && !error && records.length === 0 && (
-              <div style={s.empty}>
-                <div style={s.emptyIcon}>📂</div>
+              <div style={{ textAlign: 'center', padding: '64px 0', color: C.muted, fontSize: '14px' }}>
+                <div style={{ fontSize: '40px', marginBottom: '12px' }}>📂</div>
                 No hay registros clínicos para este paciente.
                 <br />
-                <button
-                  style={{ ...s.btnPrimary, marginTop: '16px' }}
-                  onClick={() => setView('new_note')}
-                >
-                  + Crear primer registro
-                </button>
+                <button style={{ ...btnP, marginTop: '16px' }} onClick={() => setView('new_note')}>+ Crear primer registro</button>
               </div>
             )}
 
+            {/* Timeline */}
             {!loading && records.length > 0 && (
-              <div style={s.timeline}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {records.map((rec, idx) => (
                   <div key={rec._id} style={{ display: 'flex', gap: '16px' }}>
-                    {/* Línea de tiempo */}
-                    <div style={s.cardLeft}>
-                      <div style={s.dot} />
-                      {idx < records.length - 1 && <div style={s.line} />}
-                      <span style={s.cardDate}>{formatDate(rec.recordDate)}</span>
+
+                    {/* Indicador de línea de tiempo */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '80px', flexShrink: 0 }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: C.primary, flexShrink: 0 }} />
+                      {idx < records.length - 1 && <div style={{ width: '2px', flex: 1, backgroundColor: C.border, minHeight: '20px' }} />}
+                      <span style={{ fontSize: '11px', color: C.muted, textAlign: 'center' }}>{formatDate(rec.recordDate)}</span>
                     </div>
 
                     {/* Tarjeta */}
-                    <div style={{ ...s.card, flex: 1 }}>
-                      <div style={s.cardBody}>
-                        <div style={s.cardHeader}>
-                          <span style={s.cardTitle}>{rec.title}</span>
-                          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                            <span style={s.typeBadge(rec.type)}>{TYPE_LABELS[rec.type]}</span>
-                            <span style={s.badge(STATUS_COLORS[rec.status].bg, STATUS_COLORS[rec.status].text)}>
-                              {STATUS_LABELS[rec.status]}
-                            </span>
-                          </div>
+                    <div style={{ flex: 1, backgroundColor: C.white, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+
+                      {/* Cabecera: título + badges + acciones */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: C.text }}>{rec.title}</span>
+
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+                          {/* Badge tipo */}
+                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: TYPE_COLORS[rec.type].bg, color: TYPE_COLORS[rec.type].text, border: `1px solid ${TYPE_COLORS[rec.type].border}` }}>
+                            {TYPE_LABELS[rec.type]}
+                          </span>
+                          {/* Badge status */}
+                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: STATUS_COLORS[rec.status].bg, color: STATUS_COLORS[rec.status].text }}>
+                            {STATUS_LABELS[rec.status]}
+                          </span>
+
+                          {/* FIX 3: Botón Editar — siempre visible para médicos */}
+                          <button
+                            style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', backgroundColor: '#eff6ff', color: C.primary, fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
+                            onClick={() => openEdit(rec)}
+                          >
+                            ✏️ Editar
+                          </button>
+
+                          {/* Botón Eliminar — solo visible para admin (backend también lo restringe) */}
+                          {isAdmin && (
+                            <button
+                              style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', backgroundColor: C.redBg, color: C.red, fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
+                              onClick={() => handleDelete(rec._id)}
+                            >
+                              🗑️ Eliminar
+                            </button>
+                          )}
                         </div>
-                        <p style={s.cardDesc}>{rec.description}</p>
-                        {rec.icdCode && (
-                          <span style={s.cardIcd}>ICD-10: {rec.icdCode}</span>
-                        )}
-                        {rec.notes && (
-                          <p style={{ ...s.cardDesc, marginTop: '8px', fontStyle: 'italic' }}>
-                            📝 {rec.notes}
-                          </p>
-                        )}
-                        {/* Vitales */}
-                        {rec.vitals && Object.keys(rec.vitals).length > 0 && (
-                          <div style={{ display: 'flex', gap: '12px', marginTop: '10px', flexWrap: 'wrap' }}>
-                            {rec.vitals.heartRate && (
-                              <span style={{ ...s.cardIcd, backgroundColor: '#fef2f2', color: '#dc2626' }}>
-                                ❤️ {rec.vitals.heartRate} bpm
-                              </span>
-                            )}
-                            {rec.vitals.bloodPressure && (
-                              <span style={{ ...s.cardIcd, backgroundColor: '#eff6ff', color: '#2563eb' }}>
-                                🩺 {rec.vitals.bloodPressure} mmHg
-                              </span>
-                            )}
-                            {rec.vitals.temperature && (
-                              <span style={{ ...s.cardIcd, backgroundColor: '#fefce8', color: '#ca8a04' }}>
-                                🌡️ {rec.vitals.temperature}°C
-                              </span>
-                            )}
-                            {rec.vitals.oxygenSaturation && (
-                              <span style={{ ...s.cardIcd, backgroundColor: '#f0fdfa', color: '#0d9488' }}>
-                                💨 {rec.vitals.oxygenSaturation}% SpO2
-                              </span>
-                            )}
-                          </div>
-                        )}
                       </div>
+
+                      <p style={{ fontSize: '13px', color: C.sub, lineHeight: 1.6 }}>{rec.description}</p>
+
+                      {rec.icdCode && (
+                        <span style={{ display: 'inline-block', marginTop: '8px', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#f1f5f9', color: '#475569' }}>
+                          ICD-10: {rec.icdCode}
+                        </span>
+                      )}
+
+                      {rec.notes && (
+                        <p style={{ fontSize: '13px', color: C.sub, marginTop: '8px', fontStyle: 'italic', lineHeight: 1.6 }}>
+                          📝 {rec.notes}
+                        </p>
+                      )}
+
+                      {rec.vitals && Object.keys(rec.vitals).length > 0 && (
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '10px', flexWrap: 'wrap' }}>
+                          {rec.vitals.heartRate        && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#fef2f2', color: C.red }}>❤️ {rec.vitals.heartRate} bpm</span>}
+                          {rec.vitals.bloodPressure    && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#eff6ff', color: '#2563eb' }}>🩺 {rec.vitals.bloodPressure} mmHg</span>}
+                          {rec.vitals.temperature      && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#fefce8', color: '#ca8a04' }}>🌡️ {rec.vitals.temperature}°C</span>}
+                          {rec.vitals.oxygenSaturation && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#f0fdfa', color: '#0d9488' }}>💨 {rec.vitals.oxygenSaturation}% SpO2</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -467,63 +403,43 @@ export const MedicalRecords: React.FC = () => {
 
             {/* Paginación */}
             {totalPages > 1 && (
-              <div style={s.pagination}>
-                <button
-                  style={s.pageBtn(false)}
-                  disabled={page === 1}
-                  onClick={() => setPage(p => p - 1)}
-                >
-                  ‹
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '28px' }}>
+                <button style={{ ...btnG, padding: '8px 14px' }} disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <button key={p} style={s.pageBtn(p === page)} onClick={() => setPage(p)}>
-                    {p}
-                  </button>
+                  <button key={p}
+                    style={{ width: '36px', height: '36px', borderRadius: '8px', border: `1px solid ${p === page ? C.primary : C.border}`, backgroundColor: p === page ? C.primary : C.white, color: p === page ? C.white : '#374151', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}
+                    onClick={() => setPage(p)}>{p}</button>
                 ))}
-                <button
-                  style={s.pageBtn(false)}
-                  disabled={page === totalPages}
-                  onClick={() => setPage(p => p + 1)}
-                >
-                  ›
-                </button>
+                <button style={{ ...btnG, padding: '8px 14px' }} disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>›</button>
               </div>
             )}
           </>
         )}
 
-        {/* ── VISTA: Nueva Nota Clínica ── */}
-        {view === 'new_note' && (
-          <div style={s.form}>
-            <div style={s.formTitle}>📝 Registrar Nota Clínica</div>
+        {/* ══════════════════════════════════════════════════════════════════
+            VISTA: Formulario (nueva nota o edición)
+        ═══════════════════════════════════════════════════════════════════ */}
+        {(view === 'new_note' || view === 'edit') && (
+          <div style={{ backgroundColor: C.white, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '32px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: C.text, marginBottom: '24px' }}>
+              {view === 'edit' ? '✏️ Editar Registro Clínico' : '📝 Registrar Nota Clínica'}
+            </div>
 
-            {saveError  && <div style={s.errorBox}>⚠️ {saveError}</div>}
-            {saveSuccess && <div style={s.successBox}>✅ Registro guardado correctamente.</div>}
+            {saveError   && <div style={{ backgroundColor: C.redBg, border: '1px solid #fca5a5', borderRadius: '8px', padding: '12px 16px', color: C.red, fontSize: '13px', marginBottom: '16px' }}>⚠️ {saveError}</div>}
+            {saveSuccess && <div style={{ backgroundColor: C.greenBg, border: '1px solid #86efac', borderRadius: '8px', padding: '12px 16px', color: C.green, fontSize: '13px', marginBottom: '16px' }}>✅ Registro guardado correctamente.</div>}
 
             <form onSubmit={handleSave}>
               {/* Tipo + Estado */}
-              <div style={s.grid2}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                  <label style={s.label}>Tipo de registro *</label>
-                  <select
-                    style={{ ...s.input }}
-                    value={form.type}
-                    onChange={(e) => setForm(f => ({ ...f, type: e.target.value as RecordType }))}
-                    required
-                  >
-                    {(Object.keys(TYPE_LABELS) as RecordType[]).map((t) => (
-                      <option key={t} value={t}>{TYPE_LABELS[t]}</option>
-                    ))}
+                  <Lbl>Tipo de registro *</Lbl>
+                  <select style={inp} value={form.type} onChange={(e) => setForm(f => ({ ...f, type: e.target.value as RecordType }))} required>
+                    {(Object.keys(TYPE_LABELS) as RecordType[]).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={s.label}>Estado *</label>
-                  <select
-                    style={{ ...s.input }}
-                    value={form.status}
-                    onChange={(e) => setForm(f => ({ ...f, status: e.target.value as RecordStatus }))}
-                    required
-                  >
+                  <Lbl>Estado *</Lbl>
+                  <select style={inp} value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value as RecordStatus }))} required>
                     <option value="active">Activo</option>
                     <option value="resolved">Resuelto</option>
                     <option value="archived">Archivado</option>
@@ -532,78 +448,43 @@ export const MedicalRecords: React.FC = () => {
               </div>
 
               {/* Título + Fecha */}
-              <div style={s.grid2}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                  <label style={s.label}>Título *</label>
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="Ej: Consulta de control — Diabetes"
-                    value={form.title}
-                    onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
-                    required
-                  />
+                  <Lbl>Título *</Lbl>
+                  <input style={inp} type="text" placeholder="Ej: Consulta de control — Diabetes" value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} required />
                 </div>
                 <div>
-                  <label style={s.label}>Fecha del registro *</label>
-                  <input
-                    style={s.input}
-                    type="date"
-                    max={new Date().toISOString().split('T')[0]}
-                    value={form.recordDate}
-                    onChange={(e) => setForm(f => ({ ...f, recordDate: e.target.value }))}
-                    required
-                  />
+                  <Lbl>Fecha del registro *</Lbl>
+                  <input style={inp} type="date" max={new Date().toISOString().split('T')[0]} value={form.recordDate} onChange={(e) => setForm(f => ({ ...f, recordDate: e.target.value }))} required />
                 </div>
               </div>
 
               {/* Descripción */}
-              <div style={s.field}>
-                <label style={s.label}>Descripción *</label>
-                <textarea
-                  style={s.textarea}
-                  placeholder="Descripción clínica detallada del registro..."
-                  value={form.description}
-                  onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
-                  required
-                />
+              <div style={{ marginBottom: '16px' }}>
+                <Lbl>Descripción *</Lbl>
+                <textarea style={{ ...inp, resize: 'vertical', minHeight: '90px' }} placeholder="Descripción clínica detallada del registro..." value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} required />
               </div>
 
               {/* ICD-10 + Notas */}
-              <div style={s.grid2}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                  <label style={s.label}>Código ICD-10 <span style={{ color: '#94a3b8' }}>(opcional)</span></label>
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="Ej: E11.9"
-                    value={form.icdCode}
-                    onChange={(e) => setForm(f => ({ ...f, icdCode: e.target.value }))}
-                  />
+                  <Lbl>Código ICD-10 <span style={{ color: C.muted, fontWeight: 400 }}>(opcional)</span></Lbl>
+                  <input style={inp} type="text" placeholder="Ej: E11.9" value={form.icdCode} onChange={(e) => setForm(f => ({ ...f, icdCode: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={s.label}>Notas adicionales <span style={{ color: '#94a3b8' }}>(opcional)</span></label>
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="Observaciones del médico..."
-                    value={form.notes}
-                    onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))}
-                  />
+                  <Lbl>Notas adicionales <span style={{ color: C.muted, fontWeight: 400 }}>(opcional)</span></Lbl>
+                  <input style={inp} type="text" placeholder="Observaciones del médico..." value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} />
                 </div>
               </div>
 
               {/* Acciones */}
-              <div style={s.actions}>
-                <button
-                  type="button"
-                  style={s.btnSecondary}
-                  onClick={() => { setView('history'); setSaveError(''); setForm(emptyForm); }}
-                >
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                <button type="button" style={btnG}
+                  onClick={() => { setView('history'); setEditingId(null); setSaveError(''); setForm(emptyForm); }}>
                   Cancelar
                 </button>
-                <button type="submit" style={s.btnPrimary} disabled={saving}>
-                  {saving ? 'Guardando...' : '💾 Guardar Registro'}
+                <button type="submit" style={btnP} disabled={saving}>
+                  {saving ? 'Guardando...' : view === 'edit' ? '💾 Guardar Cambios' : '💾 Guardar Registro'}
                 </button>
               </div>
             </form>

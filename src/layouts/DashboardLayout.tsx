@@ -7,6 +7,7 @@ import {
   Pill,
   Settings,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 
 // ── Colores (mismo sistema que Patients / Appointments) ───────────────────────
@@ -24,6 +25,8 @@ const C = {
   grayBg:     '#f1f5f9',
   red:        '#dc2626',
   redBg:      '#fee2e2',
+  purple:     '#7c3aed',
+  purpleBg:   '#ede9fe',
 };
 
 // ── Leer datos del doctor desde el JWT ────────────────────────────────────────
@@ -60,6 +63,7 @@ export const DashboardLayout = () => {
   const navigate = useNavigate();
   const doctor   = getDoctorInfo();
   const initials = getInitials(doctor.name);
+  const isAdmin  = doctor.role === 'admin';   // ← HOSP-46: controla visibilidad de Usuarios
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -112,6 +116,7 @@ export const DashboardLayout = () => {
           overflowY: 'auto',
           display: 'flex', flexDirection: 'column', gap: 2,
         }}>
+          {/* Items comunes — todos los roles */}
           {NAV_ITEMS.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
@@ -152,6 +157,47 @@ export const DashboardLayout = () => {
               )}
             </NavLink>
           ))}
+
+          {/* Usuarios — solo admin */}
+          {isAdmin && (
+            <NavLink
+              to="/users"
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '9px 12px', borderRadius: 8,
+                fontSize: 13, fontWeight: isActive ? 600 : 500,
+                color: isActive ? C.purple : C.sub,
+                background: isActive ? C.purpleBg : 'transparent',
+                textDecoration: 'none',
+                transition: 'background 0.15s, color 0.15s',
+              })}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLAnchorElement;
+                if (!el.getAttribute('aria-current')) {
+                  el.style.background = C.grayBg;
+                  el.style.color = C.text;
+                }
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLAnchorElement;
+                if (!el.getAttribute('aria-current')) {
+                  el.style.background = 'transparent';
+                  el.style.color = C.sub;
+                }
+              }}
+            >
+              {({ isActive }) => (
+                <>
+                  <ShieldCheck
+                    size={17}
+                    color={isActive ? C.purple : C.muted}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                  Usuarios
+                </>
+              )}
+            </NavLink>
+          )}
         </nav>
 
         {/* Footer — doctor + logout */}

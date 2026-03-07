@@ -27,6 +27,7 @@ const STATUS_STYLE: Record<string,[string,string]> = {
 const BLOOD_TYPES = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
 
 const ini = (a='',b='') => `${a[0]??''}${b[0]??''}`.toUpperCase();
+
 const calcAge = (d: string): string => {
   const birth = new Date(d);
   const today = new Date();
@@ -34,8 +35,19 @@ const calcAge = (d: string): string => {
   let years = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) years--;
+  if (years < 0 || years > 130) return 'Invalid';
   return String(years);
 };
+
+// ── HOSP-46: leer rol del JWT ─────────────────────────────────────────────────
+function getUserRole(): string {
+  try {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return '';
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role ?? '';
+  } catch { return ''; }
+}
 
 const emptyForm = { firstName:'',lastName:'',dateOfBirth:'',gender:'',email:'',phone:'',address:'',emergencyContactName:'',emergencyContactPhone:'',bloodType:'',allergies:'',chronicConditions:'',notes:'',status:'active' };
 
@@ -75,6 +87,9 @@ export const Patients = () => {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
+  // HOSP-46: calcular rol UNA vez al montar
+  const isAdmin = getUserRole() === 'admin';
+
   const load = useCallback(async () => {
     setLoading(true);
     try { const r = await getPatients({search,status:sf||undefined,page,limit:10}); setPatients(r.data.data); setTotal(r.data.total); }
@@ -82,7 +97,7 @@ export const Patients = () => {
     finally { setLoading(false); }
   },[search,sf,page]);
 
-  useEffect(()=>{load();},[load]);
+  useEffect(()=>{ load(); },[load]);
 
   const openCreate = ()=>{ setForm(emptyForm); setErr(''); setView('create'); };
   const openDetail = async(id:string)=>{ try{ const r=await getPatient(id); setSel(r.data); setView('detail'); }catch{ setErr('Error'); }};
@@ -107,7 +122,14 @@ export const Patients = () => {
     finally{ setSaving(false); }
   };
 
-  const del = async(id:string)=>{ if(!confirm('Delete?')) return; try{ await deletePatient(id); await load(); setView('list'); }catch{ setErr('Error'); }};
+  const del = async(id:string)=>{
+    if(!confirm('Delete this patient? This action cannot be undone.')) return;
+    try{ await deletePatient(id); await load(); setView('list'); }
+    catch(e:any){
+      if(e?.response?.status === 403) setErr('Only administrators can delete patients.');
+      else setErr('Error deleting patient.');
+    }
+  };
 
   const pages = Math.ceil(total/10);
 
@@ -117,9 +139,7 @@ export const Patients = () => {
     </div>
   );
 
-  // ── CONTENT ONLY — sin wrapper flex ni Sidebar (lo provee DashboardLayout) ──
-
-  // LIST
+  // ── LIST ──────────────────────────────────────────────────────────────────
   if(view==='list') return (
     <div style={{ padding:'28px 32px', background:C.bg, minHeight:'100vh', fontFamily:"'Inter',-apple-system,sans-serif" }}>
       <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20 }}>
@@ -191,9 +211,14 @@ export const Patients = () => {
                       </td>
                       <td style={{ padding:'14px 16px',verticalAlign:'middle' }}><Badge s={p.status}/></td>
                       <td style={{ padding:'14px 16px',verticalAlign:'middle' }} onClick={e=>e.stopPropagation()}>
-                        <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} onClick={()=>openEdit(p)}>✏️</button>
-                        <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} onClick={()=>del(p._id)}>🗑️</button>
-                        <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:12,color:C.primary,fontWeight:600 }} onClick={()=>navigate(`/patients/${p._id}/history`)}>📋</button>
+                        {/* ✏️ Editar — disponible para todos */}
+                        <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} title="Edit" onClick={()=>openEdit(p)}>✏️</button>
+                        {/* 🗑️ Eliminar — HOSP-46: solo admin */}
+                        {isAdmin && (
+                          <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} title="Delete" onClick={()=>del(p._id)}>🗑️</button>
+                        )}
+                        {/* 📋 Historial — disponible para todos */}
+                        <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:12,color:C.primary,fontWeight:600 }} title="Medical History" onClick={()=>navigate(`/patients/${p._id}/history`)}>📋</button>
                       </td>
                     </tr>
                   ))
@@ -212,7 +237,7 @@ export const Patients = () => {
     </div>
   );
 
-  // DETAIL
+  // ── DETAIL ────────────────────────────────────────────────────────────────
   if(view==='detail'&&sel2) return (
     <div style={{ padding:'28px 32px', background:C.bg, minHeight:'100vh', fontFamily:"'Inter',-apple-system,sans-serif" }}>
       <h1 style={{ fontSize:22,fontWeight:700,color:C.text,margin:'0 0 16px' }}>Patient Profile</h1>
@@ -233,7 +258,10 @@ export const Patients = () => {
           <div style={{ display:'flex',gap:8,marginTop:16,flexWrap:'wrap' }}>
             <button style={{ ...btnP,flex:1 }} onClick={()=>openEdit(sel2)}>Edit</button>
             <button style={btnP} onClick={()=>navigate(`/patients/${sel2._id}/history`)}>📋 History</button>
-            <button style={btnD} onClick={()=>del(sel2._id)}>Delete</button>
+            {/* HOSP-46: Delete solo visible para admin */}
+            {isAdmin && (
+              <button style={btnD} onClick={()=>del(sel2._id)}>Delete</button>
+            )}
           </div>
         </div>
         <div style={{ display:'flex',flexDirection:'column',gap:16 }}>
@@ -256,7 +284,7 @@ export const Patients = () => {
     </div>
   );
 
-  // FORM (create / edit)
+  // ── FORM (create / edit) ──────────────────────────────────────────────────
   return (
     <div style={{ padding:'28px 32px', background:C.bg, minHeight:'100vh', fontFamily:"'Inter',-apple-system,sans-serif" }}>
       <h1 style={{ fontSize:22,fontWeight:700,color:C.text,margin:'0 0 16px' }}>{view==='create'?'New Patient':'Edit Patient'}</h1>

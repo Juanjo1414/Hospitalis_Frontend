@@ -135,7 +135,7 @@ export const ForgotPassword = () => {
         </div>
 
         <div className="forgot-card-footer">
-          © 2024 Hospitalis Medical Systems. Secure &amp; Private.
+          © 2026 Hospitalis Medical Systems. Secure &amp; Private.
         </div>
       </div>
     </div>

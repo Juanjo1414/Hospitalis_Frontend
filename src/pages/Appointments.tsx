@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, type ReactNode } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   getAppointments, createAppointment, updateAppointment,
   deleteAppointment, getAppointment, type Appointment,
 } from '../services/appointments.service';
 import { getPatients, type Patient } from '../services/patient.service';
 
-type View = 'list' | 'create' | 'detail';
+type View = 'list' | 'create' | 'detail' | 'edit';
 
 const C = {
   primary:'#137fec', primaryBg:'#eef2ff',
@@ -31,67 +31,361 @@ const btnP: React.CSSProperties = { background:C.primary, color:'#fff', border:'
 const btnG: React.CSSProperties = { background:'transparent', color:C.sub, border:'1px solid #e5e7eb', borderRadius:10, padding:'8px 16px', fontSize:13, cursor:'pointer' };
 const btnD: React.CSSProperties = { background:C.redBg, color:C.red, border:'none', borderRadius:10, padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' };
 
-// Suprimir warning de unused — ReactNode se usa en NAV_ICONS
-void (null as unknown as ReactNode);
+// ── HOSP-46: leer rol del JWT ─────────────────────────────────────────────────
+function getUserRole(): string {
+  try {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return '';
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role ?? '';
+  } catch { return ''; }
+}
 
-const Badge = ({s}:{s:string})=>{ const [bg,color]=STATUS_STYLE[s]??[C.grayBg,C.gray]; return <span style={{ background:bg,color,padding:'3px 10px',borderRadius:999,fontSize:11,fontWeight:600 }}>{STATUS_LABELS[s]??s}</span>; };
-const Tag = ({t}:{t:string})=><span style={{ background:C.grayBg,color:C.sub,padding:'2px 8px',borderRadius:4,fontSize:11 }}>{t}</span>;
+function getDoctorId(): string {
+  try {
+    const t = localStorage.getItem('accessToken') || '';
+    const p = JSON.parse(atob(t.split('.')[1]));
+    return p.sub || '';
+  } catch { return ''; }
+}
 
-const fmtDate = (d:string) => new Date(d).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});
-const getDoctorId = () => { try { const t=localStorage.getItem('accessToken')||''; const p=JSON.parse(atob(t.split('.')[1])); return p.sub||''; } catch { return ''; }};
+// ── FIX FECHA: parsear 'YYYY-MM-DD' como fecha LOCAL (no UTC) ────────────────
+// new Date('2026-03-07') → interpreta como UTC → en Colombia (UTC-5) es el 6 de marzo
+// Solución: reemplazar '-' por '/' para que se interprete como local
+function fmtDate(d: string): string {
+  if (!d) return '—';
+  // Si viene como ISO completo (con T), extraer solo la parte de fecha
+  const datePart = d.includes('T') ? d.split('T')[0] : d;
+  // Parsear como local reemplazando guiones por slashes
+  const local = new Date(datePart.replace(/-/g, '/'));
+  return local.toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' });
+}
 
+// Extraer solo la parte YYYY-MM-DD de un ISO string para los inputs type="date"
+function toDateInput(d: string): string {
+  if (!d) return '';
+  return d.includes('T') ? d.split('T')[0] : d;
+}
+
+const Badge = ({s}:{s:string}) => {
+  const [bg,color] = STATUS_STYLE[s] ?? [C.grayBg,C.gray];
+  return <span style={{ background:bg,color,padding:'3px 10px',borderRadius:999,fontSize:11,fontWeight:600 }}>{STATUS_LABELS[s]??s}</span>;
+};
+const Tag = ({t}:{t:string}) => <span style={{ background:C.grayBg,color:C.sub,padding:'2px 8px',borderRadius:4,fontSize:11 }}>{t}</span>;
+
+// ── Formulario compartido (crear / editar) ────────────────────────────────────
+const AppointmentForm = ({
+  title, form, setForm, patients, saving, err, onSubmit, onCancel, submitLabel,
+}: {
+  title: string;
+  form: typeof emptyForm;
+  setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>;
+  patients: Patient[];
+  saving: boolean;
+  err: string;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+  submitLabel: string;
+}) => (
+  <div style={{ padding:'28px 32px', background:C.bg, minHeight:'100vh', fontFamily:"'Inter',-apple-system,sans-serif" }}>
+    <h1 style={{ fontSize:22,fontWeight:700,color:C.text,margin:'0 0 16px' }}>{title}</h1>
+    <button style={{ ...btnG,marginBottom:16 }} onClick={onCancel}>← Back</button>
+    <form style={{ ...card,maxWidth:720 }} onSubmit={onSubmit}>
+      {err && <div style={{ color:C.red,background:C.redBg,padding:'10px 14px',borderRadius:8,marginBottom:16,fontSize:13 }}>{err}</div>}
+
+      {/* Paciente */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:14 }}>Patient</div>
+        <label style={{ display:'flex',flexDirection:'column',gap:6 }}>
+          <span style={{ fontSize:12,fontWeight:500,color:'#374151' }}>Select Patient *</span>
+          <select required style={selStyle} value={form.patientId} onChange={e=>setForm(f=>({...f,patientId:e.target.value}))}>
+            <option value="">Choose a patient...</option>
+            {patients.map(p=><option key={p._id} value={p._id}>{p.firstName} {p.lastName} — {p.email}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {/* Schedule */}
+      <div style={{ paddingTop:16,borderTop:'1px solid #f1f5f9',marginBottom:20 }}>
+        <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:14 }}>Schedule</div>
+        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:14 }}>
+          {[
+            {l:'Date *',k:'date',type:'date',req:true},
+            {l:'Type',k:'type',type:'select',opts:Object.entries(TYPE_LABELS)},
+            {l:'Start Time *',k:'startTime',type:'time',req:true},
+            {l:'End Time *',k:'endTime',type:'time',req:true},
+            {l:'Room / Consultorio',k:'room',ph:'e.g. Consultorio 3'},
+            {l:'Status',k:'status',type:'select',opts:[['scheduled','Scheduled'],['confirmed','Confirmed'],['in_progress','In Progress'],['completed','Completed'],['cancelled','Cancelled']]},
+          ].map((f:any)=>(
+            <label key={f.k} style={{ display:'flex',flexDirection:'column',gap:6 }}>
+              <span style={{ fontSize:12,fontWeight:500,color:'#374151' }}>{f.l}</span>
+              {f.type==='select'
+                ? <select style={selStyle} value={(form as any)[f.k]} onChange={e=>setForm((p:any)=>({...p,[f.k]:e.target.value}))}>
+                    {f.opts.map(([v,t]:string[])=><option key={v} value={v}>{t}</option>)}
+                  </select>
+                : <input style={inp} type={f.type||'text'} required={f.req} value={(form as any)[f.k]} placeholder={f.ph} onChange={e=>setForm((p:any)=>({...p,[f.k]:e.target.value}))}/>
+              }
+            </label>
+          ))}
+          <label style={{ display:'flex',flexDirection:'column',gap:6,gridColumn:'1 / -1' }}>
+            <span style={{ fontSize:12,fontWeight:500,color:'#374151' }}>Reason for Visit *</span>
+            <textarea required style={{ ...inp,resize:'vertical' }} rows={3} value={form.reason} placeholder="Describe the reason..." onChange={e=>setForm(f=>({...f,reason:e.target.value}))}/>
+          </label>
+          <label style={{ display:'flex',flexDirection:'column',gap:6,gridColumn:'1 / -1' }}>
+            <span style={{ fontSize:12,fontWeight:500,color:'#374151' }}>Pre-visit Notes</span>
+            <textarea style={{ ...inp,resize:'vertical' }} rows={2} value={form.notes} placeholder="Optional notes..." onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+          </label>
+        </div>
+      </div>
+
+      <div style={{ display:'flex',justifyContent:'flex-end',gap:10 }}>
+        <button type="button" style={btnG} onClick={onCancel}>Cancel</button>
+        <button type="submit" style={btnP} disabled={saving}>{saving ? 'Saving...' : submitLabel}</button>
+      </div>
+    </form>
+  </div>
+);
+
+// ── Componente principal ──────────────────────────────────────────────────────
 export const Appointments = () => {
-  const [view, setView] = useState<View>('list');
-  const [appts, setAppts] = useState<Appointment[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [sf, setSf] = useState('');
-  const [df, setDf] = useState('');
+  const [view, setView]       = useState<View>('list');
+  const [appts, setAppts]     = useState<Appointment[]>([]);
+  const [total, setTotal]     = useState(0);
+  const [page, setPage]       = useState(1);
+  const [sf, setSf]           = useState('');
+  const [df, setDf]           = useState('');
   const [loading, setLoading] = useState(false);
-  const [sel2, setSel] = useState<Appointment|null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState('');
+  const [sel2, setSel]        = useState<Appointment|null>(null);
+  const [form, setForm]       = useState(emptyForm);
+  const [saving, setSaving]   = useState(false);
+  const [err, setErr]         = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
 
-  const load = useCallback(async()=>{
+  // HOSP-46
+  const isAdmin = getUserRole() === 'admin';
+
+  const load = useCallback(async () => {
     setLoading(true);
-    try{ const r=await getAppointments({status:sf||undefined,date:df||undefined,page,limit:10}); setAppts(r.data.data); setTotal(r.data.total); }
-    catch{ setErr('Error loading appointments'); }
-    finally{ setLoading(false); }
-  },[sf,df,page]);
+    try {
+      const r = await getAppointments({status:sf||undefined, date:df||undefined, page, limit:10});
+      setAppts(r.data.data);
+      setTotal(r.data.total);
+    } catch { setErr('Error loading appointments'); }
+    finally { setLoading(false); }
+  }, [sf, df, page]);
 
-  useEffect(()=>{ load(); },[load]);
+  useEffect(() => { load(); }, [load]);
 
-  const openCreate = async()=>{ try{ const r=await getPatients({limit:100}); setPatients(r.data.data); }catch{}; setForm(emptyForm); setErr(''); setView('create'); };
-  const openDetail = async(id:string)=>{ try{ const r=await getAppointment(id); setSel(r.data); setView('detail'); }catch{ setErr('Error'); }};
-  const submit = async(e:React.FormEvent)=>{ e.preventDefault(); setSaving(true); setErr(''); try{ await createAppointment({...form,doctorId:getDoctorId()} as any); await load(); setView('list'); }catch(ex:any){ setErr(ex?.response?.data?.message||'Error'); }finally{ setSaving(false); }};
-  const changeStatus = async(id:string,status:string)=>{ try{ await updateAppointment(id,{status}); const r=await getAppointment(id); setSel(r.data); await load(); }catch{ setErr('Error'); }};
-  const del = async(id:string)=>{ if(!confirm('Delete?')) return; try{ await deleteAppointment(id); await load(); setView('list'); }catch{ setErr('Error'); }};
+  const loadPatients = async () => {
+    try { const r = await getPatients({limit:100}); setPatients(r.data.data); } catch {}
+  };
 
-  const pages = Math.ceil(total/10);
+  const openCreate = async () => {
+    await loadPatients();
+    setForm(emptyForm);
+    setErr('');
+    setView('create');
+  };
 
-  // ── CONTENT ONLY — sin wrapper flex ni Sidebar (lo provee DashboardLayout) ──
+  const openDetail = async (id: string) => {
+    try { const r = await getAppointment(id); setSel(r.data); setView('detail'); }
+    catch { setErr('Error'); }
+  };
 
-  // LIST
-  if(view==='list') return (
+  // ── Nueva función: abrir edición ──────────────────────────────────────────
+  const openEdit = async (appt: Appointment) => {
+    await loadPatients();
+    const patId = typeof appt.patientId === 'object' ? (appt.patientId as any)._id : appt.patientId;
+    setForm({
+      patientId:  patId           ?? '',
+      date:       toDateInput(appt.date),
+      startTime:  appt.startTime  ?? '',
+      endTime:    appt.endTime    ?? '',
+      type:       appt.type       ?? 'checkup',
+      reason:     appt.reason     ?? '',
+      notes:      appt.notes      ?? '',
+      room:       appt.room       ?? '',
+      status:     appt.status     ?? 'scheduled',
+    });
+    setSel(appt);
+    setErr('');
+    setView('edit');
+  };
+
+  const submitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true); setErr('');
+    try {
+      await createAppointment({...form, doctorId: getDoctorId()} as any);
+      await load();
+      setView('list');
+    } catch(ex:any) { setErr(ex?.response?.data?.message || 'Error'); }
+    finally { setSaving(false); }
+  };
+
+  const submitEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sel2) return;
+    setSaving(true); setErr('');
+    try {
+      await updateAppointment(sel2._id, {...form} as any);
+      await load();
+      setView('list');
+    } catch(ex:any) { setErr(ex?.response?.data?.message || 'Error'); }
+    finally { setSaving(false); }
+  };
+
+  const changeStatus = async (id: string, status: string) => {
+    try {
+      await updateAppointment(id, {status});
+      const r = await getAppointment(id);
+      setSel(r.data);
+      await load();
+    } catch { setErr('Error'); }
+  };
+
+  const del = async (id: string) => {
+    if (!confirm('Delete this appointment? This action cannot be undone.')) return;
+    try {
+      await deleteAppointment(id);
+      await load();
+      setView('list');
+    } catch(e:any) {
+      if (e?.response?.status === 403) setErr('Only administrators can delete appointments.');
+      else setErr('Error deleting appointment.');
+    }
+  };
+
+  const pages = Math.ceil(total / 10);
+
+  // ── CREAR ─────────────────────────────────────────────────────────────────
+  if (view === 'create') return (
+    <AppointmentForm
+      title="New Appointment"
+      form={form} setForm={setForm}
+      patients={patients}
+      saving={saving} err={err}
+      onSubmit={submitCreate}
+      onCancel={() => setView('list')}
+      submitLabel="Create Appointment"
+    />
+  );
+
+  // ── EDITAR ────────────────────────────────────────────────────────────────
+  if (view === 'edit' && sel2) return (
+    <AppointmentForm
+      title="Edit Appointment"
+      form={form} setForm={setForm}
+      patients={patients}
+      saving={saving} err={err}
+      onSubmit={submitEdit}
+      onCancel={() => setView('detail')}
+      submitLabel="Save Changes"
+    />
+  );
+
+  // ── DETAIL ────────────────────────────────────────────────────────────────
+  if (view === 'detail' && sel2) {
+    const pat = typeof sel2.patientId === 'object' ? sel2.patientId : null;
+    const doc = typeof sel2.doctorId  === 'object' ? sel2.doctorId  : null;
+    return (
+      <div style={{ padding:'28px 32px', background:C.bg, minHeight:'100vh', fontFamily:"'Inter',-apple-system,sans-serif" }}>
+        <h1 style={{ fontSize:22,fontWeight:700,color:C.text,margin:'0 0 16px' }}>Appointment Detail</h1>
+        <button style={{ ...btnG,marginBottom:16 }} onClick={()=>setView('list')}>← Back to Appointments</button>
+        <div style={{ display:'grid',gridTemplateColumns:'320px 1fr',gap:16,alignItems:'start' }}>
+          <div style={card}>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',marginBottom:8 }}>Appointment</div>
+              <h2 style={{ margin:'0 0 4px',color:C.text,fontSize:18 }}>{fmtDate(sel2.date)}</h2>
+              <div style={{ fontSize:13,color:C.muted }}>{sel2.startTime} – {sel2.endTime}</div>
+              <div style={{ marginTop:10 }}><Badge s={sel2.status}/></div>
+            </div>
+            {pat && (
+              <div style={{ marginBottom:14,paddingBottom:14,borderBottom:'1px solid #f1f5f9' }}>
+                <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',marginBottom:8 }}>Patient</div>
+                <div style={{ fontSize:13,fontWeight:500,marginBottom:4 }}>{(pat as any).firstName} {(pat as any).lastName}</div>
+                {(pat as any).email && <div style={{ fontSize:12,color:C.muted }}>{(pat as any).email}</div>}
+                {(pat as any).phone && <div style={{ fontSize:12,color:C.muted }}>{(pat as any).phone}</div>}
+              </div>
+            )}
+            {doc && (
+              <div style={{ marginBottom:14,paddingBottom:14,borderBottom:'1px solid #f1f5f9' }}>
+                <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',marginBottom:8 }}>Doctor</div>
+                <div style={{ fontSize:13,fontWeight:500 }}>{(doc as any).fullname}</div>
+                {(doc as any).specialty && <div style={{ fontSize:12,color:C.muted }}>{(doc as any).specialty}</div>}
+              </div>
+            )}
+            <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',marginBottom:8 }}>Details</div>
+            <div style={{ display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:6 }}>
+              <span style={{ color:C.muted }}>Type</span><Tag t={TYPE_LABELS[sel2.type]??sel2.type}/>
+            </div>
+            <div style={{ display:'flex',justifyContent:'space-between',fontSize:13 }}>
+              <span style={{ color:C.muted }}>Room</span><span>{sel2.room||'—'}</span>
+            </div>
+
+            {/* Botones de acción en el detalle */}
+            <div style={{ display:'flex',gap:8,marginTop:20,flexWrap:'wrap' }}>
+              {/* ✏️ Editar — disponible para todos */}
+              <button style={{ ...btnP, flex:1 }} onClick={() => openEdit(sel2)}>✏️ Edit</button>
+              {/* 🗑️ Eliminar — HOSP-46: solo admin */}
+              {isAdmin && (
+                <button style={btnD} onClick={() => del(sel2._id)}>🗑️ Delete</button>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display:'flex',flexDirection:'column',gap:16 }}>
+            <div style={card}>
+              <h3 style={{ fontSize:15,fontWeight:600,marginBottom:8 }}>Reason for Visit</h3>
+              <p style={{ fontSize:13,color:'#475569',lineHeight:1.6 }}>{sel2.reason}</p>
+            </div>
+            {sel2.notes && (
+              <div style={card}>
+                <h3 style={{ fontSize:15,fontWeight:600,marginBottom:8 }}>Clinical Notes</h3>
+                <p style={{ fontSize:13,color:'#475569',lineHeight:1.6 }}>{sel2.notes}</p>
+              </div>
+            )}
+            <div style={card}>
+              <h3 style={{ fontSize:15,fontWeight:600,marginBottom:12 }}>Update Status</h3>
+              <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8 }}>
+                {Object.entries(STATUS_LABELS).map(([k,label]) => {
+                  const [bg,color] = STATUS_STYLE[k] ?? [C.grayBg,C.gray];
+                  return (
+                    <button key={k} onClick={() => changeStatus(sel2._id, k)}
+                      style={{ background:sel2.status===k?'#f0f9ff':'transparent', border:sel2.status===k?`2px solid ${C.primary}`:'2px solid transparent', borderRadius:10, padding:8, cursor:'pointer', transition:'all 0.15s' }}>
+                      <span style={{ background:bg,color,padding:'3px 10px',borderRadius:999,fontSize:11,fontWeight:600 }}>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── LIST ──────────────────────────────────────────────────────────────────
+  return (
     <div style={{ padding:'28px 32px', background:C.bg, minHeight:'100vh', fontFamily:"'Inter',-apple-system,sans-serif" }}>
       <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
         <h1 style={{ fontSize:22,fontWeight:700,color:C.text,margin:0 }}>Appointments</h1>
       </div>
 
-      {err&&<div style={{ color:C.red,background:C.redBg,padding:'10px 14px',borderRadius:8,marginBottom:12,fontSize:13 }}>{err}</div>}
+      {err && <div style={{ color:C.red,background:C.redBg,padding:'10px 14px',borderRadius:8,marginBottom:12,fontSize:13 }}>{err}</div>}
 
       <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:16,flexWrap:'wrap' }}>
         <input type="date" style={{ ...selStyle,width:'auto' }} value={df} onChange={e=>{ setDf(e.target.value); setPage(1); }}/>
         <select style={{ ...selStyle,width:'auto' }} value={sf} onChange={e=>{ setSf(e.target.value); setPage(1); }}>
           <option value="">All Status</option>
-          <option value="scheduled">Scheduled</option><option value="confirmed">Confirmed</option>
-          <option value="in_progress">In Progress</option><option value="completed">Completed</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </select>
         <button style={btnP} onClick={openCreate}>+ New Appointment</button>
-        {(sf||df)&&<button style={btnG} onClick={()=>{ setSf(''); setDf(''); }}>Clear filters</button>}
+        {(sf||df) && <button style={btnG} onClick={()=>{ setSf(''); setDf(''); }}>Clear filters</button>}
       </div>
 
       <div style={{ ...card,padding:0,overflow:'hidden' }}>
@@ -106,7 +400,7 @@ export const Appointments = () => {
           <tbody>
             {loading
               ? <tr><td colSpan={7} style={{ textAlign:'center',padding:40,color:C.muted }}>Loading...</td></tr>
-              : appts.length===0
+              : appts.length === 0
                 ? <tr><td colSpan={7}>
                     <div style={{ textAlign:'center',padding:'48px 24px' }}>
                       <div style={{ fontSize:40,marginBottom:12 }}>📅</div>
@@ -115,18 +409,19 @@ export const Appointments = () => {
                       <button style={btnP} onClick={openCreate}>+ New Appointment</button>
                     </div>
                   </td></tr>
-                : appts.map(a=>{
-                    const pat = typeof a.patientId==='object'?a.patientId:null;
+                : appts.map(a => {
+                    const pat = typeof a.patientId === 'object' ? a.patientId : null;
                     return (
                       <tr key={a._id} onClick={()=>openDetail(a._id)} style={{ cursor:'pointer',borderBottom:'1px solid #f1f5f9' }}
                         onMouseEnter={e=>e.currentTarget.style.background='#f8fafc'}
                         onMouseLeave={e=>e.currentTarget.style.background=''}>
                         <td style={{ padding:'14px 16px',verticalAlign:'middle' }}>
+                          {/* FIX FECHA: usar fmtDate con parseo local */}
                           <div style={{ fontWeight:600,fontSize:13,color:C.text }}>{fmtDate(a.date)}</div>
                           <div style={{ fontSize:11,color:C.muted }}>{a.startTime} – {a.endTime}</div>
                         </td>
                         <td style={{ padding:'14px 16px',verticalAlign:'middle',fontSize:13,fontWeight:500 }}>
-                          {pat?`${pat.firstName} ${pat.lastName}`:'—'}
+                          {pat ? `${(pat as any).firstName} ${(pat as any).lastName}` : '—'}
                         </td>
                         <td style={{ padding:'14px 16px',verticalAlign:'middle' }}><Tag t={TYPE_LABELS[a.type]??a.type}/></td>
                         <td style={{ padding:'14px 16px',verticalAlign:'middle',fontSize:13,maxWidth:160 }}>
@@ -135,8 +430,14 @@ export const Appointments = () => {
                         <td style={{ padding:'14px 16px',verticalAlign:'middle',fontSize:13 }}>{a.room||'—'}</td>
                         <td style={{ padding:'14px 16px',verticalAlign:'middle' }}><Badge s={a.status}/></td>
                         <td style={{ padding:'14px 16px',verticalAlign:'middle' }} onClick={e=>e.stopPropagation()}>
-                          <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} onClick={()=>openDetail(a._id)}>👁️</button>
-                          <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} onClick={()=>del(a._id)}>🗑️</button>
+                          {/* 👁️ Ver detalle */}
+                          <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} title="View" onClick={()=>openDetail(a._id)}>👁️</button>
+                          {/* ✏️ Editar — disponible para todos */}
+                          <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} title="Edit" onClick={()=>openEdit(a)}>✏️</button>
+                          {/* 🗑️ Eliminar — HOSP-46: solo admin */}
+                          {isAdmin && (
+                            <button style={{ background:'transparent',border:'none',padding:'6px 8px',borderRadius:8,cursor:'pointer',fontSize:14 }} title="Delete" onClick={()=>del(a._id)}>🗑️</button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -146,125 +447,13 @@ export const Appointments = () => {
         </table>
       </div>
 
-      {pages>1&&(
+      {pages > 1 && (
         <div style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:16,marginTop:16,fontSize:13,color:C.gray }}>
           <button style={btnG} disabled={page===1} onClick={()=>setPage(p=>p-1)}>← Prev</button>
           <span>Page {page} of {pages} · {total} appointments</span>
           <button style={btnG} disabled={page===pages} onClick={()=>setPage(p=>p+1)}>Next →</button>
         </div>
       )}
-    </div>
-  );
-
-  // DETAIL
-  if(view==='detail'&&sel2) {
-    const pat = typeof sel2.patientId==='object'?sel2.patientId:null;
-    const doc = typeof sel2.doctorId==='object'?sel2.doctorId:null;
-    return (
-      <div style={{ padding:'28px 32px', background:C.bg, minHeight:'100vh', fontFamily:"'Inter',-apple-system,sans-serif" }}>
-        <h1 style={{ fontSize:22,fontWeight:700,color:C.text,margin:'0 0 16px' }}>Appointment Detail</h1>
-        <button style={{ ...btnG,marginBottom:16 }} onClick={()=>setView('list')}>← Back to Appointments</button>
-        <div style={{ display:'grid',gridTemplateColumns:'320px 1fr',gap:16,alignItems:'start' }}>
-          <div style={card}>
-            <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',marginBottom:8 }}>Appointment</div>
-              <h2 style={{ margin:'0 0 4px',color:C.text,fontSize:18 }}>{fmtDate(sel2.date)}</h2>
-              <div style={{ fontSize:13,color:C.muted }}>{sel2.startTime} – {sel2.endTime}</div>
-              <div style={{ marginTop:10 }}><Badge s={sel2.status}/></div>
-            </div>
-            {pat&&(
-              <div style={{ marginBottom:14,paddingBottom:14,borderBottom:'1px solid #f1f5f9' }}>
-                <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',marginBottom:8 }}>Patient</div>
-                <div style={{ fontSize:13,fontWeight:500,marginBottom:4 }}>{pat.firstName} {pat.lastName}</div>
-                {pat.email&&<div style={{ fontSize:12,color:C.muted }}>{pat.email}</div>}
-                {pat.phone&&<div style={{ fontSize:12,color:C.muted }}>{pat.phone}</div>}
-              </div>
-            )}
-            {doc&&(
-              <div style={{ marginBottom:14,paddingBottom:14,borderBottom:'1px solid #f1f5f9' }}>
-                <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',marginBottom:8 }}>Doctor</div>
-                <div style={{ fontSize:13,fontWeight:500 }}>{doc.fullname}</div>
-                {doc.specialty&&<div style={{ fontSize:12,color:C.muted }}>{doc.specialty}</div>}
-              </div>
-            )}
-            <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',marginBottom:8 }}>Details</div>
-            <div style={{ display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:6 }}><span style={{ color:C.muted }}>Type</span><Tag t={TYPE_LABELS[sel2.type]??sel2.type}/></div>
-            <div style={{ display:'flex',justifyContent:'space-between',fontSize:13 }}><span style={{ color:C.muted }}>Room</span><span>{sel2.room||'—'}</span></div>
-          </div>
-          <div style={{ display:'flex',flexDirection:'column',gap:16 }}>
-            <div style={card}>
-              <h3 style={{ fontSize:15,fontWeight:600,marginBottom:8 }}>Reason for Visit</h3>
-              <p style={{ fontSize:13,color:'#475569',lineHeight:1.6 }}>{sel2.reason}</p>
-            </div>
-            {sel2.notes&&<div style={card}><h3 style={{ fontSize:15,fontWeight:600,marginBottom:8 }}>Clinical Notes</h3><p style={{ fontSize:13,color:'#475569',lineHeight:1.6 }}>{sel2.notes}</p></div>}
-            <div style={card}>
-              <h3 style={{ fontSize:15,fontWeight:600,marginBottom:12 }}>Update Status</h3>
-              <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8 }}>
-                {Object.entries(STATUS_LABELS).map(([k,label])=>{
-                  const [bg,color]=STATUS_STYLE[k]??[C.grayBg,C.gray];
-                  return (
-                    <button key={k} onClick={()=>changeStatus(sel2._id,k)}
-                      style={{ background:sel2.status===k?'#f0f9ff':'transparent', border:sel2.status===k?`2px solid ${C.primary}`:'2px solid transparent', borderRadius:10, padding:8, cursor:'pointer', transition:'all 0.15s' }}>
-                      <span style={{ background:bg,color,padding:'3px 10px',borderRadius:999,fontSize:11,fontWeight:600 }}>{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <button style={btnD} onClick={()=>del(sel2._id)}>Delete Appointment</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // CREATE
-  return (
-    <div style={{ padding:'28px 32px', background:C.bg, minHeight:'100vh', fontFamily:"'Inter',-apple-system,sans-serif" }}>
-      <h1 style={{ fontSize:22,fontWeight:700,color:C.text,margin:'0 0 16px' }}>New Appointment</h1>
-      <button style={{ ...btnG,marginBottom:16 }} onClick={()=>setView('list')}>← Back</button>
-      <form style={{ ...card,maxWidth:720 }} onSubmit={submit}>
-        {err&&<div style={{ color:C.red,background:C.redBg,padding:'10px 14px',borderRadius:8,marginBottom:16,fontSize:13 }}>{err}</div>}
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:14 }}>Patient</div>
-          <label style={{ display:'flex',flexDirection:'column',gap:6 }}>
-            <span style={{ fontSize:12,fontWeight:500,color:'#374151' }}>Select Patient *</span>
-            <select required style={selStyle} value={form.patientId} onChange={e=>setForm(f=>({...f,patientId:e.target.value}))}>
-              <option value="">Choose a patient...</option>
-              {patients.map(p=><option key={p._id} value={p._id}>{p.firstName} {p.lastName} — {p.email}</option>)}
-            </select>
-          </label>
-        </div>
-        <div style={{ paddingTop:16,borderTop:'1px solid #f1f5f9',marginBottom:20 }}>
-          <div style={{ fontSize:11,fontWeight:600,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:14 }}>Schedule</div>
-          <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:14 }}>
-            {[
-              {l:'Date *',k:'date',type:'date',req:true},{l:'Type',k:'type',type:'select',opts:Object.entries(TYPE_LABELS)},
-              {l:'Start Time *',k:'startTime',type:'time',req:true},{l:'End Time *',k:'endTime',type:'time',req:true},
-              {l:'Room / Consultorio',k:'room',ph:'e.g. Consultorio 3'},{l:'Initial Status',k:'status',type:'select',opts:[['scheduled','Scheduled'],['confirmed','Confirmed']]},
-            ].map((f:any)=>(
-              <label key={f.k} style={{ display:'flex',flexDirection:'column',gap:6 }}>
-                <span style={{ fontSize:12,fontWeight:500,color:'#374151' }}>{f.l}</span>
-                {f.type==='select'
-                  ?<select style={selStyle} value={(form as any)[f.k]} onChange={e=>setForm((p:any)=>({...p,[f.k]:e.target.value}))}>{f.opts.map(([v,t]:string[])=><option key={v} value={v}>{t}</option>)}</select>
-                  :<input style={inp} type={f.type||'text'} required={f.req} value={(form as any)[f.k]} placeholder={f.ph} onChange={e=>setForm((p:any)=>({...p,[f.k]:e.target.value}))}/>}
-              </label>
-            ))}
-            <label style={{ display:'flex',flexDirection:'column',gap:6,gridColumn:'1 / -1' }}>
-              <span style={{ fontSize:12,fontWeight:500,color:'#374151' }}>Reason for Visit *</span>
-              <textarea required style={{ ...inp,resize:'vertical' }} rows={3} value={form.reason} placeholder="Describe the reason..." onChange={e=>setForm(f=>({...f,reason:e.target.value}))}/>
-            </label>
-            <label style={{ display:'flex',flexDirection:'column',gap:6,gridColumn:'1 / -1' }}>
-              <span style={{ fontSize:12,fontWeight:500,color:'#374151' }}>Pre-visit Notes</span>
-              <textarea style={{ ...inp,resize:'vertical' }} rows={2} value={form.notes} placeholder="Optional notes..." onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
-            </label>
-          </div>
-        </div>
-        <div style={{ display:'flex',justifyContent:'flex-end',gap:10 }}>
-          <button type="button" style={btnG} onClick={()=>setView('list')}>Cancel</button>
-          <button type="submit" style={btnP} disabled={saving}>{saving?'Saving...':'Create Appointment'}</button>
-        </div>
-      </form>
     </div>
   );
 };
