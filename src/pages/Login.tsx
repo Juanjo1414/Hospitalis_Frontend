@@ -6,37 +6,28 @@ import { loginUser } from '../services/auth.service';
 
 export const Login = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe,   setRememberMe]   = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error,        setError]        = useState('');
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
     setIsSubmitting(true);
-
     try {
       const response = await loginUser({ email, password });
       const token = response?.data?.accessToken;
-      const user = response?.data?.user;
-
-      if (token) {
-        localStorage.setItem('accessToken', token);
-      }
-      if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-      if (rememberMe) {
-        localStorage.setItem('rememberMe', 'true');
-      }
-
+      const user  = response?.data?.user;
+      if (token) localStorage.setItem('accessToken', token);
+      if (user)  localStorage.setItem('user', JSON.stringify(user));
+      if (rememberMe) localStorage.setItem('rememberMe', 'true');
       navigate('/dashboard');
     } catch (err: any) {
       const message = err?.response?.data?.message;
-      setError(message ?? 'Unable to login. Please check your credentials and try again.');
+      setError(message ?? 'No se pudo iniciar sesión. Verifica tus credenciales e intenta de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
@@ -44,53 +35,50 @@ export const Login = () => {
 
   return (
     <div className="login-page">
-      {/* ── Left: Hero imagen médico ── */}
+
+      {/* ── Izquierda: Hero ── */}
       <div className="login-hero">
         <img
           src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=900&auto=format&fit=crop&q=80"
-          alt="Doctor profesional en hospital"
+          alt="Médico profesional en hospital"
         />
         <div className="login-hero-overlay" />
 
         <div className="login-hero-brand">
           <div className="brand-icon">
-            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-              local_hospital
-            </span>
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>Cardiology</span>
           </div>
           Hospitalis
         </div>
 
         <div className="login-hero-text">
-          <h2>Managing Healthcare with Excellence</h2>
+          <h2>Gestión Hospitalaria con Excelencia</h2>
           <p>
-            Experience the next generation of hospital management.
-            Streamlined workflows for doctors, better care for patients.
+            Experimenta la próxima generación en administración hospitalaria.
+            Flujos de trabajo optimizados para médicos, mejor atención para los pacientes.
           </p>
         </div>
       </div>
 
-      {/* ── Right: Formulario ── */}
+      {/* ── Derecha: Formulario ── */}
       <div className="login-form-panel">
         <div className="login-form-inner">
           <div className="login-header">
-            <h1>Welcome back</h1>
-            <p>Please enter your details to access the doctor dashboard.</p>
+            <h1>Bienvenido de nuevo</h1>
+            <p>Ingresa tus datos para acceder al panel médico.</p>
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
-          >
-            {/* Email */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+            {/* Correo */}
             <div className="auth-field">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="email">Correo Electrónico</label>
               <div className="input-wrap">
                 <span className="input-icon material-symbols-outlined">mail</span>
                 <input
                   id="email"
                   type="email"
-                  placeholder="name@hospitalis.com"
+                  placeholder="nombre@hospitalis.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -99,15 +87,15 @@ export const Login = () => {
               </div>
             </div>
 
-            {/* Password */}
+            {/* Contraseña */}
             <div className="auth-field">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">Contraseña</label>
               <div className="input-wrap">
                 <span className="input-icon material-symbols-outlined">lock</span>
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
+                  placeholder="Ingresa tu contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -127,7 +115,7 @@ export const Login = () => {
               </div>
             </div>
 
-            {/* Remember me / Forgot */}
+            {/* Recordarme / Olvidé contraseña */}
             <div className="login-row-between">
               <label className="checkbox-row">
                 <input
@@ -135,46 +123,42 @@ export const Login = () => {
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                 />
-                Remember me
+                Recordarme
               </label>
               <Link to="/forgot-password" className="auth-link" style={{ fontSize: 13 }}>
-                Forgot password?
+                ¿Olvidaste tu contraseña?
               </Link>
             </div>
 
             {/* Error */}
             {error && (
               <div className="auth-error">
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                  error
-                </span>
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>error</span>
                 {error}
               </div>
             )}
 
             {/* Submit */}
             <button type="submit" className="btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Logging in...' : 'Log In'}
+              {isSubmitting ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </button>
           </form>
 
           {/* Footer */}
           <div className="login-footer">
             <p>
-              Don't have an account?{' '}
-              <Link to="/register" className="auth-link">
-                Register
-              </Link>
+              ¿No tienes una cuenta?{' '}
+              <Link to="/register" className="auth-link">Regístrate</Link>
             </p>
-
             <div className="login-meta">
-              <a href="#">Support</a>
+              <a href="#">Soporte</a>
               <span>·</span>
-              <a href="#">Privacy Policy</a>
+              <a href="#">Política de Privacidad</a>
               <span>·</span>
               <span>© 2026 Hospitalis Inc.</span>
             </div>
           </div>
+
         </div>
       </div>
     </div>

@@ -65,11 +65,11 @@ function getInitials(name: string): string {
 // ── Nav items ──────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { to: "/patients", label: "Patients", Icon: Users },
-  { to: "/appointments", label: "Appointments", Icon: CalendarDays },
-  { to: "/messages", label: "Messages", Icon: MessageSquare },
-  { to: "/pharmacy", label: "Pharmacy", Icon: Pill },
-  { to: "/settings", label: "Settings", Icon: Settings },
+  { to: "/patients", label: "Pacientes", Icon: Users },
+  { to: "/appointments", label: "Citas", Icon: CalendarDays },
+  { to: "/messages", label: "Mensajes", Icon: MessageSquare },
+  { to: "/pharmacy", label: "Farmacia", Icon: Pill },
+  { to: "/settings", label: "Configuración", Icon: Settings },
 ];
 
 // ── Componente ─────────────────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ export const DashboardLayout = () => {
           >
             Hospitalis
           </div>
-          <div style={{ color: C.muted, fontSize: 11 }}>Medical System</div>
+          <div style={{ color: C.muted, fontSize: 11 }}>Sistema Médico</div>
         </div>
       </div>
 
@@ -319,7 +319,7 @@ export const DashboardLayout = () => {
           }}
         >
           <LogOut size={17} color={C.muted} strokeWidth={2} />
-          Logout
+          Salir
         </button>
       </div>
     </>

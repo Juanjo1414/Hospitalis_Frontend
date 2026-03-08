@@ -21,17 +21,18 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-const getUsers    = (p?: any)           => API.get('/users', { params: p });
-const updateUser  = (id: string, d: any)=> API.patch(`/users/${id}`, d);
-const deleteUser  = (id: string)        => API.delete(`/users/${id}`);
-const hardDelete  = (id: string)        => API.delete(`/users/${id}/hard`);
+const getUsers   = (p?: any)            => API.get('/users', { params: p });
+const updateUser = (id: string, d: any) => API.patch(`/users/${id}`, d);
+const deleteUser = (id: string)         => API.delete(`/users/${id}`);
+const hardDelete = (id: string)         => API.delete(`/users/${id}/hard`);
 
-// ── Helper: leer rol del JWT ──────────────────────────────────────────────────
 function getUserRole(): string {
   try {
     const t = localStorage.getItem('accessToken');
     if (!t) return '';
-    return JSON.parse(atob(t.split('.')[1])).role ?? '';
+    const base64  = t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    const jsonStr = decodeURIComponent(Array.from(atob(base64)).map(c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join(''));
+    return JSON.parse(jsonStr).role ?? '';
   } catch { return ''; }
 }
 
@@ -77,9 +78,9 @@ const StatusBadge = ({ active }: { active: boolean }) => (
 
 // ── Modal de edición ──────────────────────────────────────────────────────────
 const EditModal = ({ user, onClose, onSaved }: { user: UserItem; onClose: () => void; onSaved: () => void }) => {
-  const [form, setForm]   = useState({ fullname: user.fullname, email: user.email, role: user.role, isActive: user.isActive, password: '' });
+  const [form,   setForm]   = useState({ fullname: user.fullname, email: user.email, role: user.role, isActive: user.isActive, password: '' });
   const [saving, setSaving] = useState(false);
-  const [err, setErr]     = useState('');
+  const [err,    setErr]    = useState('');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,26 +89,25 @@ const EditModal = ({ user, onClose, onSaved }: { user: UserItem; onClose: () => 
       const payload: any = { fullname: form.fullname, email: form.email, role: form.role, isActive: form.isActive };
       if (form.password.trim()) payload.password = form.password;
       await updateUser(user._id, payload);
-      onSaved();
-      onClose();
+      onSaved(); onClose();
     } catch (ex: any) {
       setErr(ex?.response?.data?.message ?? 'Error al guardar');
     } finally { setSaving(false); }
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: C.white, borderRadius: 14, padding: 32, width: 480, boxShadow: '0 8px 30px rgba(0,0,0,0.15)' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+      <div style={{ background: C.white, borderRadius: 14, padding: '28px 24px', width: '100%', maxWidth: 480, boxShadow: '0 8px 30px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
         <h2 style={{ fontSize: 16, fontWeight: 700, color: C.text, margin: '0 0 20px' }}>✏️ Editar Usuario</h2>
         {err && <div style={{ background: C.redBg, color: C.red, padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{err}</div>}
         <form onSubmit={submit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 14 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>Nombre completo *</span>
               <input style={inp} value={form.fullname} onChange={e => setForm(f => ({ ...f, fullname: e.target.value }))} required />
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>Email *</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>Correo electrónico *</span>
               <input style={inp} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -124,12 +124,14 @@ const EditModal = ({ user, onClose, onSaved }: { user: UserItem; onClose: () => 
                 <option value="false">Inactivo</option>
               </select>
             </label>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 5, gridColumn: '1 / -1' }}>
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>Nueva contraseña <span style={{ color: C.muted, fontWeight: 400 }}>(dejar vacío para no cambiar)</span></span>
-              <input style={inp} type="password" placeholder="••••••••" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-            </label>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 20 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
+              Nueva contraseña <span style={{ color: C.muted, fontWeight: 400 }}>(dejar vacío para no cambiar)</span>
+            </span>
+            <input style={inp} type="password" placeholder="••••••••" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+          </label>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
             <button type="button" style={btnG} onClick={onClose}>Cancelar</button>
             <button type="submit" style={btnP} disabled={saving}>{saving ? 'Guardando...' : '💾 Guardar'}</button>
           </div>
@@ -139,13 +141,31 @@ const EditModal = ({ user, onClose, onSaved }: { user: UserItem; onClose: () => 
   );
 };
 
+// ── Estilos responsive ────────────────────────────────────────────────────────
+const css = `
+  .usr-wrap { padding:28px 32px; background:${C.bg}; min-height:100vh; font-family:'Inter',-apple-system,sans-serif; }
+  .usr-filters { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .usr-table { width:100%; border-collapse:collapse; }
+
+  @media (max-width:768px) {
+    .usr-wrap { padding:16px; }
+    .usr-filters { flex-direction:column; align-items:stretch; }
+    .usr-table thead { display:none; }
+    .usr-table tbody tr { display:block; border:1px solid ${C.border}; border-radius:10px; margin-bottom:10px; padding:12px 14px; background:${C.white}; }
+    .usr-table tbody td { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border:none; font-size:13px; }
+    .usr-table tbody td::before { content:attr(data-label); font-size:11px; font-weight:600; color:${C.muted}; text-transform:uppercase; flex-shrink:0; margin-right:8px; }
+    .usr-table tbody td:first-child::before { content:none; }
+    .usr-table tbody td:first-child { justify-content:flex-start; padding-bottom:10px; border-bottom:1px solid ${C.grayBg}; margin-bottom:4px; }
+  }
+`;
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export const Users = () => {
   const [users,   setUsers]   = useState<UserItem[]>([]);
   const [total,   setTotal]   = useState(0);
   const [page,    setPage]    = useState(1);
-  const [rf,      setRf]      = useState('');       // filtro rol
-  const [af,      setAf]      = useState('');       // filtro activo
+  const [rf,      setRf]      = useState('');
+  const [af,      setAf]      = useState('');
   const [loading, setLoading] = useState(false);
   const [err,     setErr]     = useState('');
   const [editing, setEditing] = useState<UserItem | null>(null);
@@ -155,11 +175,7 @@ export const Users = () => {
   const load = useCallback(async () => {
     setLoading(true); setErr('');
     try {
-      const r = await getUsers({
-        role:     rf || undefined,
-        isActive: af !== '' ? af : undefined,
-        page, limit: 10,
-      });
+      const r = await getUsers({ role: rf || undefined, isActive: af !== '' ? af : undefined, page, limit: 10 });
       setUsers(r.data.data);
       setTotal(r.data.total);
     } catch (e: any) {
@@ -184,148 +200,155 @@ export const Users = () => {
 
   const pages = Math.ceil(total / 10);
 
-  // ── Guard visual: si no es admin, mostrar acceso denegado ─────────────────
+  // ── Guard: no es admin ────────────────────────────────────────────────────
   if (!isAdmin) return (
-    <div style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', fontFamily: "'Inter',-apple-system,sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center', padding: '48px 32px', background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, maxWidth: 400 }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>Acceso Restringido</h2>
-        <p style={{ fontSize: 13, color: C.muted }}>Solo los administradores pueden gestionar usuarios del sistema.</p>
+    <>
+      <style>{css}</style>
+      <div className="usr-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', padding: '48px 32px', background: C.white, borderRadius: 14, border: `1px solid ${C.border}`, maxWidth: 400 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>Acceso Restringido</h2>
+          <p style={{ fontSize: 13, color: C.muted }}>Solo los administradores pueden gestionar usuarios del sistema.</p>
+        </div>
       </div>
-    </div>
+    </>
   );
 
   return (
-    <div style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', fontFamily: "'Inter',-apple-system,sans-serif" }}>
+    <>
+      <style>{css}</style>
+      <div className="usr-wrap">
 
-      {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: C.text, margin: 0 }}>Gestión de Usuarios</h1>
-        <p style={{ fontSize: 13, color: C.gray, marginTop: 4 }}>Administra los usuarios del sistema y sus roles.</p>
-      </div>
-
-      {/* Filtros */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <select style={{ ...inp, width: 'auto', background: C.white, cursor: 'pointer' }} value={rf} onChange={e => { setRf(e.target.value); setPage(1); }}>
-          <option value="">Todos los roles</option>
-          <option value="medico">Médico</option>
-          <option value="admin">Administrador</option>
-        </select>
-        <select style={{ ...inp, width: 'auto', background: C.white, cursor: 'pointer' }} value={af} onChange={e => { setAf(e.target.value); setPage(1); }}>
-          <option value="">Todos los estados</option>
-          <option value="true">Activos</option>
-          <option value="false">Inactivos</option>
-        </select>
-        {(rf || af) && (
-          <button style={{ ...btnG, color: C.red }} onClick={() => { setRf(''); setAf(''); setPage(1); }}>✕ Limpiar</button>
-        )}
-        <span style={{ marginLeft: 'auto', fontSize: 13, color: C.muted }}>{total} usuarios</span>
-      </div>
-
-      {err && <div style={{ color: C.red, background: C.redBg, padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{err}</div>}
-
-      {/* Tabla */}
-      <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#f8fafc' }}>
-              {['Usuario', 'Email', 'Rol', 'Estado', 'Registrado', 'Acciones'].map(h => (
-                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading
-              ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: C.muted }}>Cargando...</td></tr>
-              : users.length === 0
-                ? <tr><td colSpan={6}>
-                    <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-                      <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
-                      <div style={{ fontSize: 16, fontWeight: 600, color: '#374151', marginBottom: 6 }}>No hay usuarios</div>
-                      <div style={{ fontSize: 13, color: C.muted }}>No se encontraron usuarios con esos filtros.</div>
-                    </div>
-                  </td></tr>
-                : users.map(u => (
-                    <tr key={u._id} style={{ borderBottom: `1px solid ${C.grayBg}` }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
-                      onMouseLeave={e => (e.currentTarget.style.background = '')}>
-
-                      {/* Usuario */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: u.role === 'admin' ? C.purpleBg : C.blueBg, color: u.role === 'admin' ? C.purple : C.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                            {ini(u.fullname)}
-                          </div>
-                          <span style={{ fontWeight: 600, color: C.text, fontSize: 13 }}>{u.fullname}</span>
-                        </div>
-                      </td>
-
-                      {/* Email */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle', fontSize: 13, color: C.sub }}>{u.email}</td>
-
-                      {/* Rol */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}><RoleBadge role={u.role} /></td>
-
-                      {/* Estado */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}><StatusBadge active={u.isActive} /></td>
-
-                      {/* Fecha */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle', fontSize: 12, color: C.muted }}>
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                      </td>
-
-                      {/* Acciones */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            style={{ background: 'transparent', border: 'none', padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
-                            title="Editar usuario"
-                            onClick={() => setEditing(u)}
-                          >✏️</button>
-                          {u.isActive
-                            ? <button
-                                style={{ background: 'transparent', border: 'none', padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
-                                title="Desactivar usuario"
-                                onClick={() => deactivate(u._id, u.fullname)}
-                              >🚫</button>
-                            : <button
-                                style={{ background: 'transparent', border: 'none', padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
-                                title="Eliminar permanentemente"
-                                onClick={() => eliminate(u._id, u.fullname)}
-                              >🗑️</button>
-                          }
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-            }
-          </tbody>
-        </table>
-      </div>
-
-      {/* Paginación */}
-      {pages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 16, fontSize: 13, color: C.gray }}>
-          <button style={btnG} disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
-          <span>Página {page} de {pages} · {total} usuarios</span>
-          <button style={btnG} disabled={page === pages} onClick={() => setPage(p => p + 1)}>Next →</button>
+        {/* Encabezado */}
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.text, margin: 0 }}>Gestión de Usuarios</h1>
+          <p style={{ fontSize: 13, color: C.gray, marginTop: 4 }}>Administra los usuarios del sistema y sus roles.</p>
         </div>
-      )}
 
-      {/* Nota sobre registro de nuevos usuarios */}
-      <div style={{ marginTop: 20, padding: '14px 18px', background: C.blueBg, border: `1px solid #bfdbfe`, borderRadius: 10, fontSize: 13, color: C.blue }}>
-        ℹ️ Para crear nuevos usuarios, deben registrarse desde <strong>el Login/Register</strong>. El administrador puede cambiar su rol y estado desde esta página.
+        {/* Filtros */}
+        <div className="usr-filters">
+          <select style={{ ...inp, width: 'auto', background: C.white, cursor: 'pointer' }} value={rf} onChange={e => { setRf(e.target.value); setPage(1); }}>
+            <option value="">Todos los roles</option>
+            <option value="medico">Médico</option>
+            <option value="admin">Administrador</option>
+          </select>
+          <select style={{ ...inp, width: 'auto', background: C.white, cursor: 'pointer' }} value={af} onChange={e => { setAf(e.target.value); setPage(1); }}>
+            <option value="">Todos los estados</option>
+            <option value="true">Activos</option>
+            <option value="false">Inactivos</option>
+          </select>
+          {(rf || af) && (
+            <button style={{ ...btnG, color: C.red }} onClick={() => { setRf(''); setAf(''); setPage(1); }}>✕ Limpiar</button>
+          )}
+          <span style={{ marginLeft: 'auto', fontSize: 13, color: C.muted }}>{total} usuarios</span>
+        </div>
+
+        {err && <div style={{ color: C.red, background: C.redBg, padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{err}</div>}
+
+        {/* Tabla */}
+        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          <table className="usr-table">
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                {['Usuario', 'Correo', 'Rol', 'Estado', 'Registrado', 'Acciones'].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading
+                ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: C.muted }}>Cargando...</td></tr>
+                : users.length === 0
+                  ? <tr><td colSpan={6}>
+                      <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+                        <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: '#374151', marginBottom: 6 }}>No hay usuarios</div>
+                        <div style={{ fontSize: 13, color: C.muted }}>No se encontraron usuarios con esos filtros.</div>
+                      </div>
+                    </td></tr>
+                  : users.map(u => (
+                      <tr key={u._id} style={{ borderBottom: `1px solid ${C.grayBg}` }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+                        onMouseLeave={e => (e.currentTarget.style.background = '')}>
+
+                        {/* Usuario */}
+                        <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: u.role === 'admin' ? C.purpleBg : C.blueBg, color: u.role === 'admin' ? C.purple : C.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                              {ini(u.fullname)}
+                            </div>
+                            <span style={{ fontWeight: 600, color: C.text, fontSize: 13 }}>{u.fullname}</span>
+                          </div>
+                        </td>
+
+                        {/* Correo */}
+                        <td data-label="Correo" style={{ padding: '14px 16px', verticalAlign: 'middle', fontSize: 13, color: C.sub }}>{u.email}</td>
+
+                        {/* Rol */}
+                        <td data-label="Rol" style={{ padding: '14px 16px', verticalAlign: 'middle' }}><RoleBadge role={u.role} /></td>
+
+                        {/* Estado */}
+                        <td data-label="Estado" style={{ padding: '14px 16px', verticalAlign: 'middle' }}><StatusBadge active={u.isActive} /></td>
+
+                        {/* Fecha */}
+                        <td data-label="Registrado" style={{ padding: '14px 16px', verticalAlign: 'middle', fontSize: 12, color: C.muted }}>
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                        </td>
+
+                        {/* Acciones */}
+                        <td data-label="Acciones" style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              style={{ background: 'transparent', border: 'none', padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
+                              title="Editar usuario"
+                              onClick={() => setEditing(u)}
+                            >✏️</button>
+                            {u.isActive
+                              ? <button
+                                  style={{ background: 'transparent', border: 'none', padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
+                                  title="Desactivar usuario"
+                                  onClick={() => deactivate(u._id, u.fullname)}
+                                >🚫</button>
+                              : <button
+                                  style={{ background: 'transparent', border: 'none', padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
+                                  title="Eliminar permanentemente"
+                                  onClick={() => eliminate(u._id, u.fullname)}
+                                >🗑️</button>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+              }
+            </tbody>
+          </table>
+        </div>
+
+        {/* Paginación */}
+        {pages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 16, fontSize: 13, color: C.gray, flexWrap: 'wrap' }}>
+            <button style={btnG} disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Anterior</button>
+            <span>Página {page} de {pages} · {total} usuarios</span>
+            <button style={btnG} disabled={page === pages} onClick={() => setPage(p => p + 1)}>Siguiente →</button>
+          </div>
+        )}
+
+        {/* Nota informativa */}
+        <div style={{ marginTop: 20, padding: '14px 18px', background: C.blueBg, border: `1px solid #bfdbfe`, borderRadius: 10, fontSize: 13, color: C.blue }}>
+          ℹ️ Para crear nuevos usuarios, deben registrarse desde <strong>el Login / Registro</strong>. El administrador puede cambiar su rol y estado desde esta página.
+        </div>
+
+        {/* Modal edición */}
+        {editing && (
+          <EditModal
+            user={editing}
+            onClose={() => setEditing(null)}
+            onSaved={load}
+          />
+        )}
+
       </div>
-
-      {/* Modal edición */}
-      {editing && (
-        <EditModal
-          user={editing}
-          onClose={() => setEditing(null)}
-          onSaved={load}
-        />
-      )}
-    </div>
+    </>
   );
 };
 
