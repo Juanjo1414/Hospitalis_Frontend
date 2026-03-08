@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Login }           from './pages/Login';
 import { Register }        from './pages/Register';
 import { ForgotPassword }  from './pages/ForgotPassword';
+import { ResetPassword }   from './pages/ResetPassword';
 import { Dashboard }       from './pages/Dashboard';
 import { Patients }        from './pages/Patients';
 import { Appointments }    from './pages/Appointments';
@@ -28,6 +29,7 @@ function App() {
         </Route>
         <Route path="/register"        element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password"  element={<ResetPassword />} />
 
         {/* Rutas protegidas — todas dentro del DashboardLayout */}
         <Route element={<PrivateRoute />}>

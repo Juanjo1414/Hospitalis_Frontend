@@ -1,13 +1,13 @@
-/* ─── Shared Auth Shell ──────────────────────────────────── */
-.auth-shell {
-  min-height: 100vh;
-  background: var(--bg-page);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* =========================================================
+   HOSPITALIS — Auth Pages CSS
+   Cubre: Login, Register, ForgotPassword, ResetPassword
+   Breakpoints:
+     Mobile:  < 768px
+     Tablet:  768px – 1024px
+     Desktop: > 1024px
+   ========================================================= */
 
-/* ─── Auth Field ─────────────────────────────────────────── */
+/* ── Campo de formulario ───────────────────────────────── */
 .auth-field {
   display: flex;
   flex-direction: column;
@@ -16,9 +16,12 @@
 }
 
 .auth-field label {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .input-wrap {
@@ -33,20 +36,25 @@
   color: var(--text-muted);
   pointer-events: none;
   font-size: 20px;
+  z-index: 1;
 }
 
 .input-wrap input,
 .input-wrap select {
   width: 100%;
-  height: 52px;
+  height: 48px;
   padding: 0 14px 0 44px;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-surface);
   font-size: 14px;
   color: var(--text-primary);
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .input-wrap input:focus,
@@ -70,93 +78,136 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: color var(--transition-fast);
+  z-index: 1;
 }
 .input-wrap .input-action:hover {
   color: var(--text-secondary);
 }
 
-/* ─── Primary Button ─────────────────────────────────────── */
+/* ── Botón primario ────────────────────────────────────── */
 .btn-primary {
   width: 100%;
-  height: 52px;
+  height: 50px;
   background: var(--primary);
   color: #fff;
   border: none;
   border-radius: var(--radius);
+  font-family: var(--font-display);
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  transition:
+    background var(--transition),
+    transform var(--transition-fast),
+    box-shadow var(--transition);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  letter-spacing: -0.01em;
+  box-shadow: 0 2px 8px rgba(19, 127, 236, 0.25);
 }
-.btn-primary:hover { background: var(--primary-hover); }
-.btn-primary:active { transform: scale(0.99); }
-.btn-primary:disabled { opacity: 0.65; cursor: not-allowed; }
+.btn-primary:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 4px 16px rgba(19, 127, 236, 0.35);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: scale(0.99) translateY(0);
+}
+.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 
-/* ─── Ghost Button ───────────────────────────────────────── */
+/* ── Botón ghost ───────────────────────────────────────── */
 .btn-ghost {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius);
   padding: 8px 18px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--primary);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background var(--transition),
+    border-color var(--transition);
+  white-space: nowrap;
 }
 .btn-ghost:hover {
   background: var(--primary-light);
   border-color: var(--primary);
 }
 
-/* ─── Error Message ──────────────────────────────────────── */
+/* ── Error ─────────────────────────────────────────────── */
 .auth-error {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 10px 14px;
   background: var(--red-bg);
-  border: 1px solid #fca5a5;
+  border: 1px solid var(--red-border);
   border-radius: var(--radius-sm);
   color: var(--red);
   font-size: 13px;
   font-weight: 500;
+  animation: shake 0.3s ease;
 }
 
-/* ─── Auth Link ──────────────────────────────────────────── */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+/* ── Auth link ─────────────────────────────────────────── */
 .auth-link {
   color: var(--primary);
   font-weight: 600;
   cursor: pointer;
+  transition: opacity var(--transition-fast);
 }
-.auth-link:hover { text-decoration: underline; }
+.auth-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
 
-/* ─── Checkbox Row ───────────────────────────────────────── */
+/* ── Checkbox ──────────────────────────────────────────── */
 .checkbox-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   font-size: 13px;
   color: var(--text-secondary);
+  line-height: 1.5;
 }
 .checkbox-row input[type="checkbox"] {
   width: 16px;
   height: 16px;
+  min-width: 16px;
   border: 1.5px solid var(--border);
   border-radius: 4px;
   cursor: pointer;
   accent-color: var(--primary);
+  margin-top: 2px;
 }
 
-/* ─── Two-column grid ────────────────────────────────────── */
+/* ── Grid 2 columnas ───────────────────────────────────── */
 .grid-2col {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 14px;
 }
 
 /* =========================================================
@@ -166,31 +217,52 @@
   display: flex;
   min-height: 100vh;
   width: 100%;
+  background: #fff;
 }
 
-/* Left panel: imagen médico */
+/* Panel izquierdo — imagen hero */
 .login-hero {
   flex: 0 0 52%;
   position: relative;
   overflow: hidden;
-  background: #0d1b2a;
+  background: #0a1628;
 }
 
 .login-hero img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.75;
+  opacity: 0.6;
+  transition: opacity var(--transition-slow);
 }
 
 .login-hero-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    to bottom,
-    rgba(13, 27, 42, 0.3) 0%,
-    rgba(13, 27, 42, 0.65) 100%
+    135deg,
+    rgba(10, 22, 40, 0.5) 0%,
+    rgba(19, 127, 236, 0.25) 50%,
+    rgba(10, 22, 40, 0.75) 100%
   );
+}
+
+/* Patrón geométrico sutil sobre la imagen */
+.login-hero-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(
+      circle at 20% 80%,
+      rgba(19, 127, 236, 0.15) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(255, 255, 255, 0.05) 0%,
+      transparent 40%
+    );
 }
 
 .login-hero-brand {
@@ -201,46 +273,50 @@
   align-items: center;
   gap: 10px;
   color: #fff;
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 700;
+  z-index: 2;
 }
 
 .login-hero-brand .brand-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.2);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.25);
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 18px;
 }
 
 .login-hero-text {
   position: absolute;
-  bottom: 40px;
-  left: 32px;
-  right: 32px;
+  bottom: 44px;
+  left: 36px;
+  right: 36px;
   color: #fff;
+  z-index: 2;
 }
 
 .login-hero-text h2 {
-  font-size: 30px;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 36px);
   font-weight: 800;
-  line-height: 1.2;
-  margin-bottom: 10px;
+  line-height: 1.15;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
 }
 
 .login-hero-text p {
   font-size: 15px;
-  opacity: 0.85;
-  line-height: 1.6;
+  opacity: 0.8;
+  line-height: 1.65;
+  max-width: 380px;
 }
 
-/* Right panel: formulario */
+/* Panel derecho — formulario */
 .login-form-panel {
   flex: 1;
   display: flex;
@@ -253,58 +329,122 @@
 
 .login-form-inner {
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
+  animation: fadeInUp 0.4s ease both;
 }
 
 .login-header h1 {
-  font-size: 28px;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 30px);
   font-weight: 800;
   color: var(--text-primary);
   margin-bottom: 6px;
+  letter-spacing: -0.02em;
 }
 
 .login-header p {
   font-size: 14px;
   color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 .login-row-between {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .login-footer {
   text-align: center;
 }
-
 .login-footer p {
   font-size: 13px;
   color: var(--text-secondary);
 }
 
 .login-meta {
-  margin-top: 24px;
-  padding-top: 20px;
+  margin-top: 20px;
+  padding-top: 18px;
   border-top: 1px solid var(--border-light);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 20px;
+  flex-wrap: wrap;
 }
-
-.login-meta a {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.login-meta a:hover { color: var(--primary); }
-
+.login-meta a,
 .login-meta span {
   font-size: 12px;
   color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+.login-meta a:hover {
+  color: var(--primary);
+}
+
+/* ── Responsive Login ──────────────────────────────────── */
+
+/* Tablet: hero más pequeño */
+@media (max-width: 1024px) {
+  .login-hero {
+    flex: 0 0 44%;
+  }
+  .login-form-panel {
+    padding: 40px 32px;
+  }
+}
+
+/* Móvil: hero desaparece, formulario ocupa toda la pantalla */
+@media (max-width: 768px) {
+  .login-page {
+    flex-direction: column;
+  }
+
+  .login-hero {
+    flex: none;
+    height: 200px;
+    width: 100%;
+  }
+
+  .login-hero-text {
+    display: none;
+  }
+
+  .login-hero-brand {
+    top: 20px;
+    left: 20px;
+    font-size: 16px;
+  }
+
+  .login-form-panel {
+    flex: 1;
+    padding: 32px 20px 40px;
+    align-items: flex-start;
+  }
+
+  .login-form-inner {
+    max-width: 100%;
+    gap: 16px;
+  }
+
+  .grid-2col {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  .login-hero {
+    height: 160px;
+  }
+  .login-form-panel {
+    padding: 24px 16px 32px;
+  }
 }
 
 /* =========================================================
@@ -325,12 +465,16 @@
   justify-content: space-between;
   background: #fff;
   border-bottom: 1px solid var(--border-light);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .hospitalis-brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
@@ -358,14 +502,15 @@
 
 .register-card {
   width: 100%;
-  max-width: 520px;
+  max-width: 540px;
   background: #fff;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: 36px 40px;
+  padding: 40px 44px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
+  animation: fadeInUp 0.4s ease both;
 }
 
 .register-card-head {
@@ -375,27 +520,30 @@
 }
 
 .register-card-head .head-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
   background: var(--primary-light);
   color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   font-size: 24px;
 }
 
 .register-card-head h1 {
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 800;
   color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .register-card-head p {
   font-size: 13px;
   color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 .register-fields {
@@ -417,8 +565,37 @@
   color: var(--text-muted);
 }
 
+/* ── Responsive Register ───────────────────────────────── */
+@media (max-width: 768px) {
+  .register-topbar {
+    padding: 0 20px;
+  }
+
+  .register-body {
+    padding: 24px 16px 48px;
+  }
+
+  .register-card {
+    padding: 28px 24px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    gap: 18px;
+  }
+
+  .grid-2col {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  .register-card {
+    padding: 24px 18px;
+  }
+}
+
 /* =========================================================
-   FORGOT PASSWORD PAGE
+   FORGOT PASSWORD & RESET PASSWORD PAGES
    ========================================================= */
 .forgot-page {
   min-height: 100vh;
@@ -426,36 +603,53 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 24px 16px;
+
+  /* Fondo con patrón sutil */
+  background-image:
+    radial-gradient(
+      circle at 15% 50%,
+      rgba(19, 127, 236, 0.05) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 85% 30%,
+      rgba(19, 127, 236, 0.04) 0%,
+      transparent 40%
+    );
 }
 
 .forgot-card {
   width: 100%;
-  max-width: 460px;
+  max-width: 480px;
   background: #fff;
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
+  animation: fadeInUp 0.4s ease both;
 }
 
+/* Barra superior de color primario */
 .forgot-card-top-bar {
   height: 5px;
-  background: var(--primary);
+  background: linear-gradient(90deg, var(--primary), #4da6ff);
   width: 100%;
 }
 
 .forgot-card-body {
-  padding: 36px 40px 32px;
+  padding: 40px 44px 36px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 
+/* Brand centrado */
 .forgot-brand-center {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  font-family: var(--font-display);
   font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
@@ -473,29 +667,36 @@
   font-size: 20px;
 }
 
+/* Heading centrado */
 .forgot-heading {
   text-align: center;
 }
 
 .forgot-heading h1 {
+  font-family: var(--font-display);
   font-size: 24px;
   font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  letter-spacing: -0.02em;
 }
 
 .forgot-heading p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.65;
+  max-width: 340px;
+  margin: 0 auto;
 }
 
+/* Sección de acciones */
 .forgot-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+/* Botón volver */
 .btn-back-link {
   display: flex;
   align-items: center;
@@ -507,13 +708,140 @@
   color: var(--text-secondary);
   cursor: pointer;
   font-weight: 500;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
+  text-decoration: none;
 }
-.btn-back-link:hover { color: var(--text-primary); }
+.btn-back-link:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
+}
 
+/* Footer de la card */
 .forgot-card-footer {
-  padding: 16px 40px 24px;
+  padding: 16px 44px 24px;
   text-align: center;
   border-top: 1px solid var(--border-light);
   font-size: 12px;
   color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ── Estado de éxito ─────────────────────────────────────── */
+.forgot-success {
+  text-align: center;
+  padding: 8px 0;
+}
+
+.forgot-success-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--green-bg);
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  margin: 0 auto 16px;
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.forgot-success h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.forgot-success p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.forgot-success .email-highlight {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* ── Responsive Forgot/Reset ───────────────────────────── */
+@media (max-width: 768px) {
+  .forgot-page {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 32px;
+  }
+
+  .forgot-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+  }
+
+  .forgot-card-body {
+    padding: 28px 24px 24px;
+    gap: 18px;
+  }
+
+  .forgot-card-footer {
+    padding: 14px 24px 20px;
+  }
+
+  .forgot-heading h1 {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 400px) {
+  .forgot-card-body {
+    padding: 24px 18px 20px;
+  }
+  .forgot-card-footer {
+    padding: 12px 18px 18px;
+  }
+}
+
+/* =========================================================
+   ANIMACIONES
+   ========================================================= */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Separador con texto ───────────────────────────────── */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-light);
 }

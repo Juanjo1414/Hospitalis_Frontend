@@ -1,26 +1,23 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import '../styles/globals.css';
-import '../styles/auth.css';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import "../styles/auth.css";
+import { forgotPassword } from "../services/auth.service";
 
 export const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
     setIsSubmitting(true);
-
     try {
-      // TODO: conectar con el endpoint /auth/forgot-password
-      // await forgotPassword(email);
-      await new Promise((r) => setTimeout(r, 800)); // simulación mientras conectamos
-      setSubmitted(true);
-    } catch (err: any) {
-      setError('Could not send the recovery email. Please try again.');
+      await forgotPassword(email);
+      setSent(true);
+    } catch {
+      setError("No se pudo enviar el correo. Intenta de nuevo más tarde.");
     } finally {
       setIsSubmitting(false);
     }
@@ -29,104 +26,93 @@ export const ForgotPassword = () => {
   return (
     <div className="forgot-page">
       <div className="forgot-card">
-        {/* Barra de color primario arriba */}
+        {/* Barra azul superior */}
         <div className="forgot-card-top-bar" />
 
         <div className="forgot-card-body">
-          {/* Logo centrado */}
+          {/* Brand */}
           <div className="forgot-brand-center">
-            <div className="brand-icon">
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                local_hospital
-              </span>
-            </div>
-            Hospitalis
+            <div className="brand-icon">+</div>
+            <span>Hospitalis</span>
           </div>
 
-          {/* Heading */}
-          <div className="forgot-heading">
-            <h1>Forgot Password?</h1>
-            <p>
-              No worries, we'll send you reset instructions. Please enter the
-              email associated with your account.
-            </p>
-          </div>
-
-          {submitted ? (
-            /* ── Estado: correo enviado ── */
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 12,
-                padding: '12px 0',
-                textAlign: 'center',
-              }}
-            >
-              <div
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  background: 'var(--green-bg)',
-                  color: 'var(--green)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 32 }}>
-                  mark_email_read
-                </span>
-              </div>
-              <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                We've sent a recovery link to{' '}
-                <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>.
-                Check your inbox and follow the instructions.
+          {/* ── Estado: enviado ───────────────────────────────────────────── */}
+          {sent ? (
+            <div className="forgot-success">
+              <div className="forgot-success-icon">📬</div>
+              <h2>¡Revisa tu correo!</h2>
+              <p>
+                Si el correo <span className="email-highlight">{email}</span>{" "}
+                está registrado, recibirás un enlace de recuperación en los
+                próximos minutos.
+              </p>
+              <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+                ¿No lo ves? Revisa tu carpeta de spam.
               </p>
             </div>
           ) : (
-            /* ── Formulario ── */
-            <form
-              onSubmit={handleSubmit}
-              className="forgot-actions"
-            >
-              <div className="auth-field">
-                <label htmlFor="forgot-email">Email Address</label>
-                <div className="input-wrap">
-                  <span className="input-icon material-symbols-outlined">mail</span>
-                  <input
-                    id="forgot-email"
-                    type="email"
-                    placeholder="doctor@hospitalis.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                  />
-                </div>
+            /* ── Estado: formulario ──────────────────────────────────────── */
+            <>
+              <div className="forgot-heading">
+                <h1>Forgot Password?</h1>
+                <p>
+                  No worries, we'll send you reset instructions. Please enter
+                  the email associated with your account.
+                </p>
               </div>
 
-              {error && (
-                <div className="auth-error">
-                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                    error
-                  </span>
-                  {error}
+              <form
+                onSubmit={handleSubmit}
+                style={{ display: "flex", flexDirection: "column", gap: 14 }}
+              >
+                <div className="auth-field">
+                  <label htmlFor="fp-email">Email Address</label>
+                  <div className="input-wrap">
+                    <span className="material-symbols-outlined input-icon">
+                      mail
+                    </span>
+                    <input
+                      id="fp-email"
+                      type="email"
+                      placeholder="doctor@hospitalis.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
                 </div>
-              )}
 
-              <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                {isSubmitting ? 'Sending...' : 'Send recovery link'}
-              </button>
-            </form>
+                {error && (
+                  <div className="auth-error">
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: 18 }}
+                    >
+                      error
+                    </span>
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  className="btn-primary"
+                  type="submit"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Enviando..." : "Send recovery link"}
+                </button>
+              </form>
+            </>
           )}
 
-          {/* Back to login */}
-          <div style={{ textAlign: 'center' }}>
+          {/* Volver al login */}
+          <div className="forgot-actions">
             <Link to="/login" className="btn-back-link">
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 16 }}
+              >
                 arrow_back
               </span>
               Back to login
@@ -134,6 +120,7 @@ export const ForgotPassword = () => {
           </div>
         </div>
 
+        {/* Footer */}
         <div className="forgot-card-footer">
           © 2026 Hospitalis Medical Systems. Secure &amp; Private.
         </div>
