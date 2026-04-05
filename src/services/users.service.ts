@@ -13,5 +13,5 @@ API.interceptors.request.use((config) => {
 });
 
 export const updateProfile = (id: string, data: any) => API.patch(`/users/${id}`, data);
-export const getProfileInfo = (id: string) => API.get(`/users/${id}`);
+export const getProfileInfo = () => API.get(`/users/profile`);
 export const getUsers = () => API.get('/users');

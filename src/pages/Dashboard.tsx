@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Users, CalendarDays, FileText, AlertTriangle, Bell } from 'lucide-react';
 import { getTodayAppointments, getAppointments, type Appointment } from '../services/appointments.service';
 import { getPatients } from '../services/patient.service';
+import { getUnreadCount } from '../services/messages.service';
 
 const C = {
   primary:'#137fec', white:'#ffffff', bg:'#f6f7f8',
@@ -33,14 +34,8 @@ function getFechaHoy(): string {
 }
 
 function getDoctorName(): string {
-  const token = localStorage.getItem('accessToken');
-  if (!token) return 'Doctor';
-  const base64  = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-  const jsonStr = decodeURIComponent(
-    Array.from(atob(base64)).map(c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join('')
-  );
-  const payload = JSON.parse(jsonStr);
-  return payload.fullName ?? payload.email ?? 'Doctor';
+  // Función deprecada pero mantenida si se llama afuera, ahora usamos contexto.
+  return "Doctor";
 }
 
 function getInitials(name: string): string {
@@ -64,7 +59,8 @@ const Skeleton = ({ w='100%', h=16 }: { w?: string|number; h?: number }) => (
 
 export const Dashboard = () => {
   const navigate   = useNavigate();
-  const doctorName = getDoctorName();
+  const contextData = useOutletContext<{name: string, role: string}>();
+  const doctorName = contextData?.name || 'Doctor';
 
   const [todayAppts,    setTodayAppts]    = useState<Appointment[]>([]);
   const [totalPatients, setTotalPatients] = useState<number|null>(null);
@@ -73,17 +69,19 @@ export const Dashboard = () => {
   const [emergencies,   setEmergencies]   = useState<number|null>(null);
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState('');
+  const [unreadMsg,     setUnreadMsg]     = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     const fetchAll = async () => {
       setLoading(true); setError('');
       try {
-        const [todayRes, patientsRes, allPatientsRes, emergencyRes] = await Promise.all([
+        const [todayRes, patientsRes, allPatientsRes, emergencyRes, unreadRes] = await Promise.all([
           getTodayAppointments(),
           getPatients({ limit:1 }),
           getPatients({ limit:200 }),
           getAppointments({ status:'in_progress', limit:100 }),
+          getUnreadCount(),
         ]);
         if (cancelled) return;
         setTodayAppts(todayRes.data);
@@ -94,6 +92,7 @@ export const Dashboard = () => {
         setNewPatients(newThisWeek);
         setTotalAppts(todayRes.data.length);
         setEmergencies(emergencyRes.data.total ?? 0);
+        setUnreadMsg(unreadRes.data.count ?? 0);
       } catch { if (!cancelled) setError('Error al cargar los datos del dashboard'); }
       finally  { if (!cancelled) setLoading(false); }
     };
@@ -174,10 +173,10 @@ export const Dashboard = () => {
               <input placeholder="Buscar pacientes, registros..." />
             </div>
             <div style={{ position:'relative' }}>
-              <button style={{ padding:8, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <button onClick={() => navigate('/messages')} style={{ padding:8, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <Bell size={18} color={C.gray} />
               </button>
-              <span style={{ position:'absolute', top:6, right:6, width:7, height:7, borderRadius:'50%', background:C.red, border:`1.5px solid ${C.white}` }}/>
+              {unreadMsg > 0 && <span style={{ position:'absolute', top: -4, right: -4, fontSize: 10, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius:'10px', minWidth: 16, height: 16, padding: '0 4px', background:C.red, color: C.white, border:`1.5px solid ${C.white}` }}>{unreadMsg}</span>}
             </div>
           </div>
         </div>

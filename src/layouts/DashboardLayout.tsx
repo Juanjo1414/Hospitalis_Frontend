@@ -46,18 +46,40 @@ const NAV_ITEMS = [
 export const DashboardLayout = () => {
   const navigate  = useNavigate();
   const location  = useLocation();
-  const doctor    = getDoctorInfo();
-  const initials  = getInitials(doctor.name);
-  const isAdmin   = doctor.role === 'admin';
 
   // Estado del sidebar en móvil
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
-  // Polling de mensajes no leídos
+  // Inicializar info de usuario usando JWT para que no parpadee
+  const initialDoctor = getDoctorInfo();
+  const [doctor, setDoctor] = useState(initialDoctor);
+
+  const fetchUserProfile = async () => {
+    try {
+      // Importación dinámica para evitar problemas de dependencias cíclicas si los hubiese
+      const { getProfileInfo } = await import('../services/users.service');
+      const res = await getProfileInfo();
+      if (res.data) {
+        setDoctor(prev => ({
+          ...prev,
+          name: res.data.fullname || prev.name,
+          role: res.data.specialty || prev.role
+        }));
+      }
+    } catch (err) {
+      console.error("Error al refrescar perfil del navbar", err);
+    }
+  };
+
   useEffect(() => {
+    // Buscar real data of User on load
+    fetchUserProfile();
+
+    // Listeners for layout events
     const fetchUnread = async () => {
       try {
+        const { getUnreadCount } = await import('../services/messages.service');
         const res = await getUnreadCount();
         setUnreadMsgCount(res.data.count);
       } catch (err) {}
@@ -65,8 +87,19 @@ export const DashboardLayout = () => {
 
     fetchUnread();
     const int = setInterval(fetchUnread, 30000);
-    return () => clearInterval(int);
+    
+    window.addEventListener('refreshUnreadCount', fetchUnread);
+    window.addEventListener('profileUpdated', fetchUserProfile);
+    
+    return () => {
+      clearInterval(int);
+      window.removeEventListener('refreshUnreadCount', fetchUnread);
+      window.removeEventListener('profileUpdated', fetchUserProfile);
+    };
   }, []);
+
+  const initials = getInitials(doctor.name);
+  const isAdmin = doctor.role === 'admin' || initialDoctor.role === 'admin'; // Fallback a role original del token
 
   // Cerrar sidebar al cambiar de ruta en móvil
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
@@ -385,7 +418,7 @@ export const DashboardLayout = () => {
 
         {/* Contenido */}
         <main style={{ flex: 1, overflowY: 'auto' }}>
-          <Outlet />
+          <Outlet context={doctor} />
         </main>
       </div>
 
