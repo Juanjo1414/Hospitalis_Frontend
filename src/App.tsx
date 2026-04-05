@@ -11,6 +11,9 @@ import { Messages }        from './pages/Messages';
 import { Pharmacy }        from './pages/Pharmacy';
 import { Settings }        from './pages/Settings';
 import { Users }           from './pages/Users';
+import { Medications }     from './pages/Medications';
+import { SystemConfig }    from './pages/SystemConfig';
+import { AuditLogs }       from './pages/AuditLogs';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { AuthLayout }      from './layouts/AuthLayout';
 import { PrivateRoute }    from './components/PrivateRoute';
@@ -40,9 +43,12 @@ function App() {
             <Route path="/messages"     element={<Messages />} />
             <Route path="/pharmacy"     element={<Pharmacy />} />
             <Route path="/settings"     element={<Settings />} />
-            <Route path="/users"        element={<Users />} />
+            <Route path="/users"         element={<Users />} />
+            <Route path="/medications"   element={<Medications />} />
+            <Route path="/system-config" element={<SystemConfig />} />
+            <Route path="/audit"         element={<AuditLogs />} />
 
-            {/* Historial médico y notas clínicas */}
+            {/* HOSP-45 / HOSP-47: Historial médico y notas clínicas */}
             <Route path="/patients/:patientId/history" element={<MedicalRecords />} />
           </Route>
         </Route>
